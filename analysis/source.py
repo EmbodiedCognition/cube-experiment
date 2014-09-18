@@ -1,8 +1,4 @@
 import climate
-import codecs
-import csv
-import gzip
-import numpy as np
 import os
 import pandas as pd
 
