@@ -6,9 +6,6 @@ import numpy as np
 import os
 import pandas as pd
 
-import lmj.plot
-import sys
-
 logging = climate.get_logger('source')
 
 
@@ -124,27 +121,3 @@ class Trial:
             markers = self.df.ix[:, c:c+4]
             markers[markers.ix[:, -1] < 0] = float('nan')
             self.df.ix[:, c:c+4] = markers.interpolate()
-
-
-if __name__ == '__main__':
-    climate.enable_default_logging()
-
-    subj = Subject(sys.argv[1])
-    trial = subj.blocks[0].trials[0]
-    trial.load()
-    print(list(trial.markers))
-
-    ax = lmj.plot.axes(111, projection='3d')
-    x, y, z = trial.marker('r-fing-index')
-    ax.plot(x, z, zs=y)
-    x, y, z = trial.marker('l-fing-index')
-    ax.plot(x, z, zs=y)
-    x, y, z = trial.marker('r-heel')
-    ax.plot(x, z, zs=y)
-    x, y, z = trial.marker('l-heel')
-    ax.plot(x, z, zs=y)
-    x, y, z = trial.marker('r-knee')
-    ax.plot(x, z, zs=y)
-    x, y, z = trial.marker('l-knee')
-    ax.plot(x, z, zs=y)
-    lmj.plot.show()
