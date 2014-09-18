@@ -143,4 +143,8 @@ if __name__ == '__main__':
     ax.plot(x, z, zs=y)
     x, y, z = trial.marker('l-heel')
     ax.plot(x, z, zs=y)
+    x, y, z = trial.marker('r-knee')
+    ax.plot(x, z, zs=y)
+    x, y, z = trial.marker('l-knee')
+    ax.plot(x, z, zs=y)
     lmj.plot.show()
