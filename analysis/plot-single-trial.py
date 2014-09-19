@@ -2,27 +2,23 @@ import climate
 import lmj.plot
 
 import source
+import plots
 
 
-def main(subject):
-    subj = source.Subject(subject)
-    trial = subj.blocks[0].trials[0]
-    trial.load()
-
-    ax = lmj.plot.axes(111, projection='3d', aspect='equal')
-    x, y, z = trial.marker('r-fing-index')
-    ax.plot(x, z, zs=y)
-    x, y, z = trial.marker('l-fing-index')
-    ax.plot(x, z, zs=y)
-    x, y, z = trial.marker('r-heel')
-    ax.plot(x, z, zs=y)
-    x, y, z = trial.marker('l-heel')
-    ax.plot(x, z, zs=y)
-    x, y, z = trial.marker('r-knee')
-    ax.plot(x, z, zs=y)
-    x, y, z = trial.marker('l-knee')
-    ax.plot(x, z, zs=y)
-    lmj.plot.show()
+@climate.annotate(
+    subjects='plot data from these subjects',
+    marker=('plot data for this mocap marker', 'option'),
+    trial_num=('plot data for this trial', 'option', None, int),
+)
+def main(marker='r-fing-index', trial_num=0, *subjects):
+    with plots.space() as ax:
+        for i, subject in enumerate(subjects):
+            subj = source.Subject(subject)
+            for b in subj.blocks:
+                trial = b.trials[trial_num]
+                trial.load()
+                x, y, z = trial.marker(marker)
+                ax.plot(x, z, zs=y, color=lmj.plot.COLOR11[i], alpha=0.7)
 
 
 if __name__ == '__main__':
