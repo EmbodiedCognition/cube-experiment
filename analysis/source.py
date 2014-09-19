@@ -101,6 +101,10 @@ class Trial:
         index = markers[name]
         return [self.df.iloc[:, i] for i in range(index, index + 3)]
 
+    def frame_for_contact(self, target):
+        idx = self.df.target.where(target)
+        return idx[-1]
+
     def clear(self):
         self.df = None
 
