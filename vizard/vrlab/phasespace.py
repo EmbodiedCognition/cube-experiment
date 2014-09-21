@@ -242,24 +242,28 @@ class Phasespace(viz.EventClass):
     ----------
     server_name : str
         The hostname for the phasespace server.
-    frame_rate : float
-        Poll phasespace this many times per second. Defaults to 100.
-    scale : (float, float, float)
+    freq : float, optional
+        Run phasespace at this frequency. Defaults to 100 Hz.
+    scale : (float, float, float), optional
         Scale raw phasespace position data by this amount. The default is to
         scale positions by 0.001, thus converting from mm to meters.
-    offset : (float, float, float)
+    offset : (float, float, float), optional
         Translate scaled phasespace position data by this amount.
-    postprocess : bool
+    postprocess : bool, optional
         Enable phasespace postprocessing. The default is no postprocessing.
-    slave : bool
+    slave : bool, optional
         Run our OWL client in slave mode. The default is to run OWL in master mode.
     '''
 
     UPDATE_TIMER = 0
 
-    def __init__(self, server_name, frame_rate=200.,
-                 scale=(0.001, 0.001, 0.001), offset=(0, 0, 0),
-                 postprocess=False, slave=False):
+    def __init__(self,
+                 server_name,
+                 freq=100.,
+                 scale=(0.001, 0.001, 0.001),
+                 offset=(0, 0, 0),
+                 postprocess=False,
+                 slave=False):
         super(Phasespace, self).__init__()
 
         flags = 0
@@ -271,14 +275,14 @@ class Phasespace(viz.EventClass):
         if OWL.owlInit(server_name, flags) < 0:
             raise OwlError('phasespace')
 
-        OWL.owlSetFloat(OWL.OWL_FREQUENCY, OWL.OWL_MAX_FREQUENCY)
+        OWL.owlSetFloat(OWL.OWL_FREQUENCY, freq)
         OWL.owlSetInteger(OWL.OWL_STREAMING, OWL.OWL_ENABLE)
 
         self.scale = scale
         self.offset = offset
         self.trackers = []
 
-        self.frame_rate = frame_rate
+        self.frame_rate = freq
         self._updated = viz.tick()
         self._thread = None
         self._running = False
