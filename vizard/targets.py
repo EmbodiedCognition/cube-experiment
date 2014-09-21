@@ -1,6 +1,6 @@
 import viz
-import vizact
 import vizshape
+import viztask
 
 import vrlab
 
@@ -16,7 +16,7 @@ class Target:
         self.sphere = vizshape.addSphere(
             0.7, center=self.center, color=viz.WHITE)
         self.sound = viz.addAudio('{:02d}.wav'.format(index))
-        self.signal = vizact.Signal()
+        self.signal = viztask.Signal()
         self.sensor = vizproximity.addBoundingSphereSensor(self.sphere, scale=1)
 
     def activate(self, prox):
