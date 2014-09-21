@@ -13,11 +13,12 @@ class Target:
 
     def __init__(self, index, x, y, z):
         self.center = x, y, z
-        self.sphere = vizshape.addSphere(
-            0.7, center=self.center, color=viz.WHITE)
-        self.sound = viz.addAudio('{:02d}.wav'.format(index))
-        self.signal = viztask.Signal()
+        self.sphere = vizshape.addSphere(0.2)
+        self.sphere.setPosition(self.center)
+        self.sphere.color(viz.WHITE)
         self.sensor = vizproximity.addBoundingSphereSensor(self.sphere, scale=1)
+        self.signal = viztask.Signal()
+        self.sound = viz.addAudio('{:02d}.wav'.format(index))
 
     def activate(self, prox):
         prox.clearSensors()
