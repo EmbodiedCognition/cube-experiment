@@ -19,6 +19,10 @@ import vrlab
 import suit
 import targets
 
+# module constants
+TIMESTAMP_FORMAT = '%Y%m%d%H%M%S'
+BASE_PATH = 'C:\\Documents and Settings\\vrlab\\Desktop\\target-data'
+
 
 class Trial(vrlab.Trial):
     '''Manage a single trial of the target-reaching experiment.'''
@@ -71,7 +75,7 @@ class Trial(vrlab.Trial):
         return self.TRIAL_TYPE
 
     def write_records(self):
-        stamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+        stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         output = os.path.join(
             self.block.output,
             '{}-{}.csv'.format(stamp, self.trial_description()))
@@ -142,8 +146,6 @@ class Block(vrlab.Block):
     targets.
     '''
 
-    index = 0
-
     def __init__(self,
                  experiment,
                  effector,
@@ -157,22 +159,18 @@ class Block(vrlab.Block):
         self.trial_factory = trial_factory
         self.num_trials = num_trials
 
+        stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
-            experiment.output, 'block{}-effector{}'.format(
-                Block.index, self.effector))
+            experiment.output, '{}-effector{}'.format(stamp, self.effector))
 
-        logging.info('NEW BLOCK -- tracer %s, trials %s',
+        logging.info('NEW BLOCK -- effector %s, trials %s',
                      self.effector, self.trial_factory.__name__)
-
-        Block.index += 1
 
     def setup(self):
         self.experiment.prox.addTarget(self.experiment.leds[self.effector])
 
         if not os.path.isdir(self.output):
             os.makedirs(self.output)
-
-        vrlab.sounds.gong.play()
 
         yield viztask.waitKeyDown(' ')
 
@@ -204,6 +202,7 @@ class Block(vrlab.Block):
                 logging.info('gzipped %s (%d kbytes) as %s (%d kbytes)',
                              fn, len(source) / 1000, gz, len(zipped))
 
+                # only remove source file if gzipped version is identical.
                 if source == verify:
                     os.unlink(fn)
 
@@ -219,18 +218,30 @@ class Experiment(vrlab.Experiment):
     we turn on the motion-capture thread, create some experiment-relevant Vizard
     objects for representing the mocap leds and targets, and create a virtual
     environment for visualization.
-
-    We ultimately generate a series of experiment blocks by using the
-    parameters set at the top of the module.
     '''
 
-    BASE = 'C:\\Documents and Settings\\vrlab\\Desktop\\target-data'
+    def find_output(self, threshold_min):
+        '''Locate an output directory for a subject.
+
+        This method looks at existing output directory names and reuses an
+        existing directory if one was created in the past "threshold" minutes.
+        If no such directory exists, it creates a new one.
+        '''
+        moment = now = datetime.datetime.now()
+        key = random.randint(0, 0xffffff)
+        for bn in os.listdir(BASE_PATH):
+            s, k = bn.split('-')
+            then = datetime.datetime.strptime(s, TIMESTAMP_FORMAT)
+            if now - then < datetime.timedelta(seconds=60 * threshold_min):
+                moment = then
+                key = k
+                break
+        return '{}-{:08x}'.format(moment.strftime(TIMESTAMP_FORMAT), key)
 
     def setup(self):
         # set up a folder to store data for a subject.
-        stamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-        self.output = '{}\\{}-{:08x}'.format(
-            self.BASE, stamp, random.randint(0, 0xffffff))
+        dirname = self.find_output(threshold_min=30)
+        self.output = os.path.join(BASE_PATH, dirname)
         logging.info('storing output in %s', self.output)
 
         # configure the phasespace.
@@ -254,10 +265,6 @@ class Experiment(vrlab.Experiment):
     def generate_blocks(self):
         #yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trial_factory=ControlTrial, num_trials=10)
         #yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trial_factory=HubAndSpokeTrial, num_trials=5)
-        yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trial_factory=CircuitTrial, num_trials=6)
-        yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trial_factory=CircuitTrial, num_trials=6)
-        yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trial_factory=CircuitTrial, num_trials=6)
-        yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trial_factory=CircuitTrial, num_trials=6)
         yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trial_factory=CircuitTrial, num_trials=6)
 
 
