@@ -2,6 +2,7 @@ from __future__ import print_function
 
 # python imports
 import datetime
+import gzip
 import logging
 import os
 import random
@@ -177,6 +178,34 @@ class Block(vrlab.Block):
 
     def teardown(self):
         self.experiment.prox.clearTargets()
+
+        # gzip recorded trial data for this block
+        for f in os.listdir(self.output):
+            if f.endswith('.csv'):
+                fn = os.path.join(self.output, f)
+                gz = fn + '.gz'
+
+                source = ''
+                with open(fn) as src:
+                    source = src.read()
+
+                tgt = gzip.open(gz, 'wb')
+                tgt.write(source)
+                tgt.close()
+
+                zipped = ''
+                with open(gz, 'rb') as tgt:
+                    zipped = tgt.read()
+
+                tgt = gzip.open(gz)
+                verify = tgt.read()
+                tgt.close()
+
+                logging.info('gzipped %s (%d kbytes) as %s (%d kbytes)',
+                             fn, len(source) / 1000, gz, len(zipped))
+
+                if source == verify:
+                    os.unlink(fn)
 
     def generate_trials(self):
         for ts in targets.CIRCUITS[:self.num_trials]:
