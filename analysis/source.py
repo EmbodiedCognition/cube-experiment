@@ -96,10 +96,12 @@ class Trial:
             if h[:2].isdigit() and h.endswith('-x'):
                 yield i, h[3:-2]
 
+    def target_contacts(self):
+        return self.df['target'].diff().nonzero()[0]
+
     def marker(self, name):
-        markers = {h: i for i, h in self.markers}
-        index = markers[name]
-        return [self.df.iloc[:, i] for i in range(index, index + 3)]
+        i = {h: i for i, h in self.markers}[name]
+        return np.asarray(self.df.iloc[:, i:i+3])
 
     def frame_for_contact(self, target):
         idx = self.df.target.where(target)
