@@ -27,7 +27,7 @@ BASE_PATH = 'C:\\Documents and Settings\\vrlab\\Desktop\\target-data'
 class Trial(vrlab.Trial):
     '''Manage a single trial of the target-reaching experiment.'''
 
-    def __init__(self, block, targets):
+    def __init__(self, block, targets, **kwargs):
         super(Trial, self).__init__()
 
         self.block = block
@@ -50,6 +50,7 @@ class Trial(vrlab.Trial):
 
     def wait_for_touch(self, target):
         target.activate(self.block.experiment.prox)
+        #yield viztask.waitKeyDown(' ')
         yield target.signal.wait()
 
     def target_sequence(self):
@@ -121,6 +122,14 @@ class HubAndSpokeTrial(Trial):
 
 class CircuitTrial(Trial):
     TRIAL_TYPE = 'circuit'
+
+    def __init__(self, block, targets, circuit=0):
+        super(CircuitTrial, self).__init__(block, targets)
+
+        self.circuit_num = circuit
+
+    def trial_description(self):
+        return '{}{}'.format(self.TRIAL_TYPE, self.circuit_num)
 
     def target_sequence(self):
         for target in self.targets:
@@ -206,8 +215,8 @@ class Block(vrlab.Block):
                     os.unlink(fn)
 
     def generate_trials(self):
-        for ts in targets.CIRCUITS[:self.num_trials]:
-            yield self.trial_factory(self, [targets.NUMBERED[t] for t in ts])
+        for i, ts in enumerate(targets.CIRCUITS[:self.num_trials]):
+            yield self.trial_factory(self, [targets.NUMBERED[t] for t in ts], circuit=i)
 
 
 class Experiment(vrlab.Experiment):
