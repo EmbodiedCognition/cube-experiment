@@ -56,7 +56,6 @@ class Trial(vrlab.Trial):
         raise NotImplementedError
 
     def setup(self):
-        vrlab.sounds.cowbell.play()
         yield self.wait_for_touch(self.home)
         self.start_tick = viz.tick()
 
@@ -228,7 +227,7 @@ class Experiment(vrlab.Experiment):
         If no such directory exists, it creates a new one.
         '''
         moment = now = datetime.datetime.now()
-        key = random.randint(0, 0xffffff)
+        key = '{:08x}'.format(random.randint(0, 0xffffff))
         for bn in os.listdir(BASE_PATH):
             s, k = bn.split('-')
             then = datetime.datetime.strptime(s, TIMESTAMP_FORMAT)
@@ -236,11 +235,11 @@ class Experiment(vrlab.Experiment):
                 moment = then
                 key = k
                 break
-        return '{}-{:08x}'.format(moment.strftime(TIMESTAMP_FORMAT), key)
+        return '{}-{}'.format(moment.strftime(TIMESTAMP_FORMAT), key)
 
     def setup(self):
         # set up a folder to store data for a subject.
-        dirname = self.find_output(threshold_min=30)
+        dirname = self.find_output(threshold_min=7)
         self.output = os.path.join(BASE_PATH, dirname)
         logging.info('storing output in %s', self.output)
 
