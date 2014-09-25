@@ -1,4 +1,5 @@
 import viz
+import vizproximity
 import vizshape
 import viztask
 

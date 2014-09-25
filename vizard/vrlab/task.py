@@ -169,7 +169,7 @@ class Experiment(Task):
     def generate_blocks(self):
         raise NotImplementedError
 
-    def main(self):
+    def main(self, fullscreen=True):
         logging.info('running experiment')
-        viz.go(viz.FULLSCREEN)
+        viz.go(viz.FULLSCREEN if fullscreen else 0)
         viztask.schedule(self.workflow)
