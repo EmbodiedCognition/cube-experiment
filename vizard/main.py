@@ -188,31 +188,35 @@ class Block(vrlab.Block):
         # gzip recorded trial data for this block
         for f in os.listdir(self.output):
             if f.endswith('.csv'):
-                fn = os.path.join(self.output, f)
-                gz = fn + '.gz'
+                self._gzip_file(os.path.join(self.output, f))
 
-                source = ''
-                with open(fn) as src:
-                    source = src.read()
+    def _gzip_file(self, filename):
+        '''Gzip the contents of a file, and remove the original.'''
+        gz = filename + '.gz'
 
-                tgt = gzip.open(gz, 'wb')
-                tgt.write(source)
-                tgt.close()
+        source = ''
+        with open(filename) as src:
+            source = src.read()
 
-                zipped = ''
-                with open(gz, 'rb') as tgt:
-                    zipped = tgt.read()
+        tgt = gzip.open(gz, 'wb')
+        tgt.write(source)
+        tgt.close()
 
-                tgt = gzip.open(gz)
-                verify = tgt.read()
-                tgt.close()
+        zipped = ''
+        with open(gz, 'rb') as tgt:
+            zipped = tgt.read()
 
-                logging.info('gzipped %s (%d kbytes) as %s (%d kbytes)',
-                             fn, len(source) / 1000, gz, len(zipped))
+        tgt = gzip.open(gz)
+        verify = tgt.read()
+        tgt.close()
 
-                # only remove source file if gzipped version is identical.
-                if source == verify:
-                    os.unlink(fn)
+        logging.info('gzipped %s -> %s (%d -> %d kbytes)',
+                     filename, os.path.basename(gz),
+                     len(source) / 1000, len(zipped) / 1000)
+
+        # only remove source file if gzipped version is identical.
+        if source == verify:
+            os.unlink(filename)
 
     def generate_trials(self):
         for i, ts in enumerate(targets.CIRCUITS[:self.num_trials]):
