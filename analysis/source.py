@@ -1,32 +1,80 @@
 import climate
+import datetime.datetime
 import os
 import pandas as pd
 
 logging = climate.get_logger('source')
 
 
-class Subject:
-    '''Encapsulates data from a single subject.
+class Experiment:
+    '''Encapsulates all data gathered from the cube poking experiment.
 
     Attributes
     ----------
     root : str
-        The root filesystem path containing this subject's data.
-    blocks : list of `Block`
-        A list of the blocks for this subject.
+        The root filesystem path containing experiment data.
     '''
 
     def __init__(self, root):
         self.root = root
-        self.blocks = [Block(self, f) for f in os.listdir(root)]
-        logging.info('%s: loaded subject with %d blocks',
-                     os.path.basename(root), len(self.blocks))
+        self.subjects = [Subject(self, f) for f in os.listdir(root)]
+        self.df = None
 
-    def load(self, interpolate=True):
-        [b.load(interpolate) for b in self.blocks]
+    def load(self, match_subjects=None, match_blocks=None, match_trials=None, interpolate=True):
+        dfs = []
+        keys = []
+        for s in self.subjects:
+            if match_subjects is None or re.search(match_subjects, s.key):
+                dfs.append(s.load(match_blocks=match_blocks, match_trials=match_trials, interpolate=interpolate))
+                keys.append(s.key)
+        self.df = pd.DataFrame(dfs, index=[keys, dfs.index])
 
 
-class Block:
+class TimedMixin:
+    TIMESTAMP_FORMAT = '%Y%m%d%H%M%S'
+
+    @property
+    def stamp(self):
+        return datetime.datetime.strptime(
+            self.basename.split('-')[0], TimedMixin.TIMESTAMP_FORMAT)
+
+
+class Subject(TimedMixin):
+    '''Encapsulates data from a single subject.
+
+    Attributes
+    ----------
+    experiment : `Experiment`
+        The experiment object for all subjects.
+    blocks : list of `Block`
+        A list of the blocks for this subject.
+    df : pandas.DataFrame
+        A DataFrame object that holds all data for this subject.
+    key : str
+        A unique string that corresponds to this subject.
+    '''
+
+    def __init__(self, experiment, basename):
+        self.experiment = experiment
+        self.basename = basename
+        self.blocks = [Block(self, f) for f in os.listdir(self.root)]
+        logging.info('subject %s: %d blocks', self.key, len(self.blocks))
+
+    @property
+    def root(self):
+        return os.path.join(self.experiment.root, self.basename)
+
+    @property
+    def key(self):
+        return self.basename.split('-')[1]
+
+    def load(self, match_blocks=None, match_trials=None, interpolate=True):
+        for i, b in enumerate(self.blocks):
+            if match_blocks is None or i in match_blocks:
+                b.load(match_trials=match_trials, interpolate=interpolate)
+
+
+class Block(TimedMixin):
     '''Encapsulates data from a single block (from one subject).
 
     Parameters
@@ -57,11 +105,13 @@ class Block:
     def root(self):
         return os.path.join(self.subject.root, self.basename)
 
-    def load(self, interpolate=True):
-        [t.load(interpolate) for t in self.trials]
+    def load(self, match_trials=None, interpolate=True):
+        for t in self.trials:
+            if match_trials is None or re.search(match_trials, self.basename):
+                t.load(interpolate=interpolate)
 
 
-class Trial:
+class Trial(TimedMixin):
     '''Encapsulates data from a single trial (from one block of one subject).
 
     Parameters
@@ -84,11 +134,6 @@ class Trial:
     def __init__(self, block, basename):
         self.block = block
         self.basename = basename
-        self.df = None
-
-    @property
-    def path(self):
-        return os.path.join(self.block.root, self.basename)
 
     @property
     def markers(self):
@@ -111,7 +156,8 @@ class Trial:
         self.df = None
 
     def load(self, interpolate=True):
-        self.df = pd.read_csv(self.path, compression='gzip')
+        path = os.path.join(self.block.root, self.basename)
+        self.df = pd.read_csv(path, compression='gzip')
         if interpolate:
             self.interpolate()
         logging.info('%s: loaded trial %s', self.basename, self.df.shape)
