@@ -192,9 +192,8 @@ class Block(vrlab.Block):
 
     def _gzip_file(self, filename):
         '''Gzip the contents of a file, and remove the original.'''
-        gz = filename + '.gz'
+        source = zipped = gz = filename + '.gz'
 
-        source = ''
         with open(filename) as src:
             source = src.read()
 
@@ -202,17 +201,16 @@ class Block(vrlab.Block):
         tgt.write(source)
         tgt.close()
 
-        zipped = ''
         with open(gz, 'rb') as tgt:
             zipped = tgt.read()
-
-        tgt = gzip.open(gz)
-        verify = tgt.read()
-        tgt.close()
 
         logging.info('gzipped %s -> %s (%d -> %d kbytes)',
                      filename, os.path.basename(gz),
                      len(source) / 1000, len(zipped) / 1000)
+
+        tgt = gzip.open(gz)
+        verify = tgt.read()
+        tgt.close()
 
         # only remove source file if gzipped version is identical.
         if source == verify:
