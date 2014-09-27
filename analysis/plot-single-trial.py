@@ -17,8 +17,8 @@ def main(marker='r-fing-index', trial_num=0, *subjects):
             for b in subj.blocks:
                 trial = b.trials[trial_num]
                 trial.load()
-                x, y, z = trial.marker(marker)
-                ax.plot(x, z, zs=y, color=lmj.plot.COLOR11[i], alpha=0.7)
+                df = trial.marker_trajectory(marker)
+                ax.plot(df.x, df.z, zs=df.y, color=lmj.plot.COLOR11[i], alpha=0.7)
 
 
 if __name__ == '__main__':

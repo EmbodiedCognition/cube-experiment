@@ -81,6 +81,22 @@ class Trial:
         Data for this trial.
     '''
 
+    class ICOL:
+        TIME = 0
+        SOURCE_ID = 1
+        SOURCE_XYZ = [2, 3, 4]
+        TARGET_ID = 5
+        TARGET_XYZ = [6, 7, 8]
+        EFFECTOR_XYZC = [9, 10, 11, 12]
+
+    class COL:
+        TIME = 'time'
+        SOURCE_ID = 'source'
+        SOURCE_XYZ = ['source-x', 'source-y', 'source-z']
+        TARGET_ID = 'target'
+        TARGET_XYZ = ['target-x', 'target-y', 'target-z']
+        EFFECTOR_XYZC = ['effector-x', 'effector-y', 'effector-z', 'effector-c']
+
     def __init__(self, block, basename):
         self.block = block
         self.basename = basename
@@ -91,21 +107,20 @@ class Trial:
         return os.path.join(self.block.root, self.basename)
 
     @property
-    def markers(self):
+    def marker_columns(self):
         for i, h in enumerate(self.df.columns):
             if h[:2].isdigit() and h.endswith('-x'):
-                yield i, h[3:-2]
+                yield h[3:-2], i
 
-    def target_contacts(self):
-        return self.df['target'].diff().nonzero()[0]
+    @property
+    def target_contact_frames(self):
+        targets = self.df['target']
+        frames, = targets.diff().nonzero()
+        return np.concatenate([frames[1:], len(targets)]) - 1
 
-    def marker(self, name):
-        i = {h: i for i, h in self.markers}[name]
-        return np.asarray(self.df.iloc[:, i:i+3])
-
-    def frame_for_contact(self, target):
-        idx = self.df.target.where(target)
-        return idx[-1]
+    def marker_trajectory(self, name):
+        i = [i for h, i in self.marker_columns if h == name][0]
+        return pd.DataFrame(self.df.iloc[:, i:i+3], columns=list('xyz'))
 
     def clear(self):
         self.df = None
@@ -118,8 +133,10 @@ class Trial:
 
     def interpolate(self):
         '''Interpolate missing mocap data.'''
-        idx = [i for i, _ in self.markers]
-        for c in range(idx[0], idx[-1] + 1, 4):
-            markers = self.df.ix[:, c:c+4]
+        def interp(i):
+            markers = self.df.ix[:, i:i+4]
             markers[markers.ix[:, -1] < 0] = float('nan')
-            self.df.ix[:, c:c+4] = markers.interpolate()
+            self.df.ix[:, i:i+4] = markers.interpolate()
+        interp(Trial.ICOL.EFFECTOR_XYZC[0])
+        for _, i in self.marker_columns:
+            interp(i)
