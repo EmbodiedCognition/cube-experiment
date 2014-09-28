@@ -22,6 +22,16 @@ class Experiment:
         self.subjects = [Subject(self, f) for f in os.listdir(root)]
         self.df = None
 
+    @property
+    def blocks(self, pattern):
+        for s in self.subjects:
+            yield from s.blocks
+
+    @property
+    def trials(self):
+        for s in self.subjects:
+            yield from s.trials
+
     def load(self, pattern, interpolate=True):
         for s in self.subjects:
             if s.matches(pattern):
@@ -73,6 +83,11 @@ class Subject(TimedMixin, TreeMixin):
         logging.info('subject %s: %d blocks, %d trials',
                      self.key, len(self.blocks), sum(len(b.trials) for b in self.blocks))
         self.df = None
+
+    @property
+    def trials(self):
+        for b in self.blocks:
+            yield from b.trials
 
     def load(self, pattern, interpolate=True):
         for i, b in enumerate(self.blocks):
