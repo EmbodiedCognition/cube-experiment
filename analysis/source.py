@@ -161,9 +161,11 @@ class Trial(TimedMixin, TreeMixin):
     def target_contacts(self):
         return self.df['target'].diff().nonzero()[0]
 
-    def marker(self, name):
-        i = {h: i for i, h in self.markers}[name]
-        return np.asarray(self.df.iloc[:, i:i+3]).T
+    def marker_trajectory(self, name):
+        i = [i for i, h in self.markers if h == name][0]
+        df = self.df.iloc[:, i:i+3].copy()
+        df.columns = list('xyz')
+        return df
 
     def frame_for_contact(self, target):
         idx = self.df.target.where(target)
