@@ -2,6 +2,7 @@ import climate
 import datetime
 import fnmatch
 import functools
+import numpy as np
 import os
 import pandas as pd
 
@@ -162,7 +163,7 @@ class Trial(TimedMixin, TreeMixin):
 
     def marker(self, name):
         i = {h: i for i, h in self.markers}[name]
-        return np.asarray(self.df.iloc[:, i:i+3])
+        return np.asarray(self.df.iloc[:, i:i+3]).T
 
     def frame_for_contact(self, target):
         idx = self.df.target.where(target)
