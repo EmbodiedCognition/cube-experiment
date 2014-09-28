@@ -238,7 +238,7 @@ class Experiment(vrlab.Experiment):
         If no such directory exists, it creates a new one.
         '''
         moment = now = datetime.datetime.now()
-        key = '{:08x}'.format(random.randint(0, 0xffffff))
+        key = '{:08x}'.format(random.randint(0, 0xffffffff))
         for bn in os.listdir(BASE_PATH):
             s, k = bn.split('-')
             then = datetime.datetime.strptime(s, TIMESTAMP_FORMAT)
