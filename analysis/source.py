@@ -5,6 +5,7 @@ import functools
 import numpy as np
 import os
 import pandas as pd
+import scipy.interpolate
 
 logging = climate.get_logger('source')
 
@@ -33,10 +34,10 @@ class Experiment:
         for s in self.subjects:
             yield from s.trials
 
-    def load(self, pattern, interpolate=True):
+    def load(self, pattern):
         for s in self.subjects:
             if s.matches(pattern):
-                s.load(pattern, interpolate=interpolate)
+                s.load(pattern)
 
 
 class TimedMixin:
@@ -90,10 +91,10 @@ class Subject(TimedMixin, TreeMixin):
         for b in self.blocks:
             yield from b.trials
 
-    def load(self, pattern, interpolate=True):
+    def load(self, pattern):
         for i, b in enumerate(self.blocks):
             if b.matches(pattern):
-                b.load(pattern, interpolate=interpolate)
+                b.load(pattern)
 
 
 class Block(TimedMixin, TreeMixin):
@@ -121,10 +122,10 @@ class Block(TimedMixin, TreeMixin):
         self.basename = basename
         self.trials = self.children = [Trial(self, f) for f in os.listdir(self.root)]
 
-    def load(self, pattern, interpolate=True):
+    def load(self, pattern):
         for t in self.trials:
             if t.matches(pattern):
-                t.load(interpolate=interpolate)
+                t.load()
 
 
 class Trial(TimedMixin, TreeMixin):
@@ -178,16 +179,36 @@ class Trial(TimedMixin, TreeMixin):
     def clear(self):
         self.df = None
 
-    def load(self, interpolate=True):
-        self.df = pd.read_csv(self.root, compression='gzip')
-        if interpolate:
-            self.interpolate()
-        logging.info('%s: loaded trial %s', self.basename, self.df.shape)
+    def load(self, frame_rate=100.):
+        import lmj.plot
 
-    def interpolate(self):
-        '''Interpolate missing mocap data.'''
-        idx = [i for i, _ in self.markers]
-        for c in range(idx[0], idx[-1] + 1, 4):
-            markers = self.df.ix[:, c:c+4]
-            markers[markers.ix[:, -1] < 0] = float('nan')
-            self.df.ix[:, c:c+4] = markers.interpolate()
+        self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
+
+        # first replace dropouts with nans.
+        def mask_dropouts(col):
+            m = self.df.iloc[:, col:col+4]
+            x, y, z, c = (m[c] for c in m.columns)
+            idx = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
+            self.df.ix[~idx, col:col+4] = float('nan')
+
+        mask_dropouts(9)
+        for i, _ in self.markers:
+            mask_dropouts(i)
+
+        # for each column, fit a spline and evaluate at regularly spaced times.
+        dt = 1 / frame_rate
+        start = self.df.index[0]
+        posts = np.arange(dt + start - start % dt, self.df.index[-1], dt)
+        values = [self.df[c].reindex(posts, method='ffill') for c in self.df.columns[:9]]
+        for col in self.df.columns[9:]:
+            series = self.df[col].dropna()
+            if len(series) > 0 and not col.endswith('-c'):
+                values.append(scipy.interpolate.InterpolatedUnivariateSpline(
+                    series.index, series)(posts))
+            else:
+                values.append(self.df[col].reindex(posts, method='ffill'))
+
+        # replace our current DataFrame with the interpolated values.
+        self.df = pd.DataFrame(dict(zip(self.df.columns, values)), index=posts)
+
+        logging.info('%s: loaded trial %s', self.basename, self.df.shape)
