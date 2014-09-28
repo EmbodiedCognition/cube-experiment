@@ -1,5 +1,7 @@
 import climate
-import datetime.datetime
+import datetime
+import fnmatch
+import functools
 import os
 import pandas as pd
 
@@ -20,14 +22,10 @@ class Experiment:
         self.subjects = [Subject(self, f) for f in os.listdir(root)]
         self.df = None
 
-    def load(self, match_subjects=None, match_blocks=None, match_trials=None, interpolate=True):
-        dfs = []
-        keys = []
+    def load(self, pattern, interpolate=True):
         for s in self.subjects:
-            if match_subjects is None or re.search(match_subjects, s.key):
-                dfs.append(s.load(match_blocks=match_blocks, match_trials=match_trials, interpolate=interpolate))
-                keys.append(s.key)
-        self.df = pd.DataFrame(dfs, index=[keys, dfs.index])
+            if s.matches(pattern):
+                s.load(pattern, interpolate=interpolate)
 
 
 class TimedMixin:
@@ -38,8 +36,22 @@ class TimedMixin:
         return datetime.datetime.strptime(
             self.basename.split('-')[0], TimedMixin.TIMESTAMP_FORMAT)
 
+    @property
+    def key(self):
+        return os.path.splitext(self.basename)[0].split('-')[1]
 
-class Subject(TimedMixin):
+
+class TreeMixin:
+    @property
+    def root(self):
+        return os.path.join(self.parent.root, self.basename)
+
+    @functools.lru_cache(maxsize=5)
+    def matches(self, pattern):
+        return any(c.matches(pattern) for c in self.children)
+
+
+class Subject(TimedMixin, TreeMixin):
     '''Encapsulates data from a single subject.
 
     Attributes
@@ -55,26 +67,20 @@ class Subject(TimedMixin):
     '''
 
     def __init__(self, experiment, basename):
-        self.experiment = experiment
+        self.experiment = self.parent = experiment
         self.basename = basename
-        self.blocks = [Block(self, f) for f in os.listdir(self.root)]
-        logging.info('subject %s: %d blocks', self.key, len(self.blocks))
+        self.blocks = self.children = [Block(self, f) for f in os.listdir(self.root)]
+        logging.info('subject %s: %d blocks, %d trials',
+                     self.key, len(self.blocks), sum(len(b.trials) for b in self.blocks))
+        self.df = None
 
-    @property
-    def root(self):
-        return os.path.join(self.experiment.root, self.basename)
-
-    @property
-    def key(self):
-        return self.basename.split('-')[1]
-
-    def load(self, match_blocks=None, match_trials=None, interpolate=True):
+    def load(self, pattern, interpolate=True):
         for i, b in enumerate(self.blocks):
-            if match_blocks is None or i in match_blocks:
-                b.load(match_trials=match_trials, interpolate=interpolate)
+            if b.matches(pattern):
+                b.load(pattern, interpolate=interpolate)
 
 
-class Block(TimedMixin):
+class Block(TimedMixin, TreeMixin):
     '''Encapsulates data from a single block (from one subject).
 
     Parameters
@@ -95,23 +101,17 @@ class Block(TimedMixin):
     '''
 
     def __init__(self, subject, basename):
-        self.subject = subject
+        self.subject = self.parent = subject
         self.basename = basename
-        self.trials = [Trial(self, f) for f in os.listdir(self.root)]
-        logging.info('%s: loaded block with %d trials',
-                     self.basename, len(self.trials))
+        self.trials = self.children = [Trial(self, f) for f in os.listdir(self.root)]
 
-    @property
-    def root(self):
-        return os.path.join(self.subject.root, self.basename)
-
-    def load(self, match_trials=None, interpolate=True):
+    def load(self, pattern, interpolate=True):
         for t in self.trials:
-            if match_trials is None or re.search(match_trials, self.basename):
+            if t.matches(pattern):
                 t.load(interpolate=interpolate)
 
 
-class Trial(TimedMixin):
+class Trial(TimedMixin, TreeMixin):
     '''Encapsulates data from a single trial (from one block of one subject).
 
     Parameters
@@ -132,8 +132,9 @@ class Trial(TimedMixin):
     '''
 
     def __init__(self, block, basename):
-        self.block = block
+        self.block = self.parent = block
         self.basename = basename
+        self.df = None
 
     @property
     def markers(self):
@@ -152,12 +153,15 @@ class Trial(TimedMixin):
         idx = self.df.target.where(target)
         return idx[-1]
 
+    @functools.lru_cache(maxsize=5)
+    def matches(self, pattern):
+        return fnmatch.fnmatch(self.root, pattern)
+
     def clear(self):
         self.df = None
 
     def load(self, interpolate=True):
-        path = os.path.join(self.block.root, self.basename)
-        self.df = pd.read_csv(path, compression='gzip')
+        self.df = pd.read_csv(self.root, compression='gzip')
         if interpolate:
             self.interpolate()
         logging.info('%s: loaded trial %s', self.basename, self.df.shape)

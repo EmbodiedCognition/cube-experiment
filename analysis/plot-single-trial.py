@@ -6,19 +6,25 @@ import plots
 
 
 @climate.annotate(
-    subjects='plot data from these subjects',
-    marker=('plot data for this mocap marker', 'option'),
-    trial_num=('plot data for this trial', 'option', None, int),
+    root='load experiment data from this directory',
+    pattern='plot data from files matching this pattern',
 )
-def main(marker='r-fing-index', trial_num=0, *subjects):
+def main(root, pattern='*block00/*circuit00.csv.gz'):
     with plots.space() as ax:
-        for i, subject in enumerate(subjects):
-            subj = source.Subject(subject)
-            for b in subj.blocks:
-                trial = b.trials[trial_num]
-                trial.load()
-                x, y, z = trial.marker(marker)
-                ax.plot(x, z, zs=y, color=lmj.plot.COLOR11[i], alpha=0.7)
+        for s in source.Experiment(root).subjects:
+            for b in s.blocks:
+                for t in b.trials:
+                    if not t.matches(pattern):
+                        continue
+                    t.load()
+                    x, y, z = t.marker('r-fing-index')
+                    ax.plot(x, z, zs=y, color=lmj.plot.COLOR11[0], alpha=0.7)
+                    x, y, z = t.marker('l-fing-index')
+                    ax.plot(x, z, zs=y, color=lmj.plot.COLOR11[1], alpha=0.7)
+                    x, y, z = t.marker('r-heel')
+                    ax.plot(x, z, zs=y, color=lmj.plot.COLOR11[2], alpha=0.7)
+                    x, y, z = t.marker('r-knee')
+                    ax.plot(x, z, zs=y, color=lmj.plot.COLOR11[3], alpha=0.7)
 
 
 if __name__ == '__main__':
