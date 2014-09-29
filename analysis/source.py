@@ -6,6 +6,7 @@ import numpy as np
 import os
 import pandas as pd
 import scipy.interpolate
+import sklearn.gaussian_process
 
 logging = climate.get_logger('source')
 
@@ -173,7 +174,7 @@ class Trial(TimedMixin, TreeMixin):
     def marker_columns(self):
         for i, h in enumerate(self.df.columns):
             if h[:2].isdigit() and h.endswith('-x'):
-                yield h[3:-2], i
+                yield i, h[3:-2]
 
     @property
     def target_contact_frames(self):
@@ -194,36 +195,64 @@ class Trial(TimedMixin, TreeMixin):
     def clear(self):
         self.df = None
 
-    def load(self, frame_rate=100.):
-        import lmj.plot
-
+    def load(self):
         self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
 
-        # first replace dropouts with nans.
-        def mask_dropouts(col):
+        # for each marker, replace dropout frames with nans.
+        def replace_dropouts(col):
             m = self.df.iloc[:, col:col+4]
             x, y, z, c = (m[c] for c in m.columns)
-            idx = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
-            self.df.ix[~idx, col:col+4] = float('nan')
+            # "good" frames have reasonable condition numbers and are not
+            # located *exactly* at the origin (which, for the cube experiment,
+            # is on the floor).
+            good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
+            self.df.ix[~good, col:col+4] = float('nan')
 
-        mask_dropouts(9)
-        for i, _ in self.markers:
-            mask_dropouts(i)
+        replace_dropouts(Trial.ICOL.EFFECTOR_XYZC[0])
+        for i, _ in self.marker_columns:
+            replace_dropouts(i)
 
-        # for each column, fit a spline and evaluate at regularly spaced times.
+        logging.info('%s: loaded trial %s', self.basename, self.df.shape)
+
+    def realign(self, frame_rate=100., order=1):
+        '''Realign raw marker data to regular time intervals.
+
+        If order is nonzero, realignment will also perform spline interpolation
+        of the given order.
+
+        The existing `df` attribute of this Trial will be replaced.
+
+        Parameters
+        ----------
+        frame_rate : float, optional
+            Frame rate for desired time offsets. Defaults to 100Hz.
+        order : int, optional
+            Order of desired interpolation. Defaults to 1 (linear
+            interpolation). Set to 0 for no interpolation.
+        '''
         dt = 1 / frame_rate
         start = self.df.index[0]
         posts = np.arange(dt + start - start % dt, self.df.index[-1], dt)
-        values = [self.df[c].reindex(posts, method='ffill') for c in self.df.columns[:9]]
-        for col in self.df.columns[9:]:
-            series = self.df[col].dropna()
-            if len(series) > 0 and not col.endswith('-c'):
-                values.append(scipy.interpolate.InterpolatedUnivariateSpline(
-                    series.index, series)(posts))
-            else:
-                values.append(self.df[col].reindex(posts, method='ffill'))
 
-        # replace our current DataFrame with the interpolated values.
+        def reindex(column):
+            return self.df[column].reindex(posts, method='ffill')
+
+        Spline = scipy.interpolate.InterpolatedUnivariateSpline
+        def interp(series):
+            return Spline(series.index, series, k=order)(posts)
+
+        def gp(series):
+            gp = sklearn.gaussian_process.GaussianProcess(
+                nugget=1e-12, theta0=100, #thetaL=10, thetaU=1000,
+            )
+            gp.fit(np.atleast_2d(series.index).T, series)
+            return gp.predict(np.atleast_2d(posts).T)
+
+        MARKERS = Trial.ICOL.EFFECTOR_XYZC[0]
+        values = [reindex(c) for c in self.df.columns[:MARKERS]]
+        for column in self.df.columns[MARKERS:]:
+            series = self.df[column].dropna()
+            eligible = len(series) > order and not column.endswith('-c')
+            values.append(interp(series) if eligible else reindex(column))
+
         self.df = pd.DataFrame(dict(zip(self.df.columns, values)), index=posts)
-
-        logging.info('%s: loaded trial %s', self.basename, self.df.shape)
