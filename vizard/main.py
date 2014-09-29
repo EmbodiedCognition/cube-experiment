@@ -154,8 +154,6 @@ class Block(vrlab.Block):
     targets.
     '''
 
-    index = 0
-
     def __init__(self,
                  experiment,
                  effector,
@@ -171,12 +169,16 @@ class Block(vrlab.Block):
 
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
-            experiment.output, '{}-block{:02d}'.format(stamp, Block.index))
+            experiment.output, '{}-block{:02d}'.format(stamp, self.index))
 
         logging.info('NEW BLOCK -- effector %s, trials %s',
                      self.effector, self.trial_factory.__name__)
 
-        Block.index += 1
+    @property
+    def index(self):
+        if os.path.isdir(self.experiment.output):
+            return len(os.listdir(self.experiment.output))
+        return 0
 
     def setup(self):
         self.experiment.prox.addTarget(self.experiment.leds[self.effector])
