@@ -22,6 +22,10 @@ class Target:
         self.signal = viztask.Signal()
         self.sound = viz.addAudio('{:02d}.wav'.format(index))
 
+    def __str__(self):
+        return 'Target({:2d}, {:5.2f}, {:5.2f}, {:5.2f})'.format(
+            self.index, *self.center)
+
     def activate(self, prox):
         prox.clearSensors()
 
