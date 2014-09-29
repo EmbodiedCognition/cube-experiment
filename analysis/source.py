@@ -26,11 +26,6 @@ class Experiment:
         self.df = None
 
     @property
-    def blocks(self, pattern):
-        for s in self.subjects:
-            yield from s.blocks
-
-    @property
     def trials(self):
         for s in self.subjects:
             yield from s.trials
