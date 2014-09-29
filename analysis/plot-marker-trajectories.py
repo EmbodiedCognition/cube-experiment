@@ -16,6 +16,7 @@ def main(root, pattern='*/*block00/*circuit00.csv.gz', markers='r-fing-index l-f
         for t in source.Experiment(root).trials:
             if t.matches(pattern):
                 t.load()
+                t.realign(order=1)
                 for i, marker in enumerate(markers.split()):
                     df = t.marker_trajectory(marker)
                     ax.plot(np.asarray(df.x),
