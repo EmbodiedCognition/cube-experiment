@@ -57,5 +57,7 @@ MARKER_LABELS = [
 
 # a class for holding constants mapping marker labels to numbers.
 class MARKERS:
-    for l in MARKER_LABELS:
-        setattr(MARKERS, l[3:].replace('-', '_'), int(l[:2]))
+    pass
+
+for l in MARKER_LABELS:
+    setattr(MARKERS, l[3:].replace('-', '_').upper(), int(l[:2]))

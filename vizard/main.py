@@ -27,7 +27,7 @@ BASE_PATH = 'C:\\Documents and Settings\\vrlab\\Desktop\\target-data'
 class Trial(vrlab.Trial):
     '''Manage a single trial of the target-reaching experiment.'''
 
-    def __init__(self, block, targets):
+    def __init__(self, block, targets, **kwargs):
         super(Trial, self).__init__()
 
         self.block = block
@@ -50,13 +50,13 @@ class Trial(vrlab.Trial):
 
     def wait_for_touch(self, target):
         target.activate(self.block.experiment.prox)
+        #yield viztask.waitKeyDown(' ')
         yield target.signal.wait()
 
     def target_sequence(self):
         raise NotImplementedError
 
     def setup(self):
-        vrlab.sounds.cowbell.play()
         yield self.wait_for_touch(self.home)
         self.start_tick = viz.tick()
 
@@ -123,6 +123,14 @@ class HubAndSpokeTrial(Trial):
 class CircuitTrial(Trial):
     TRIAL_TYPE = 'circuit'
 
+    def __init__(self, block, targets, circuit=0):
+        super(CircuitTrial, self).__init__(block, targets)
+
+        self.circuit_num = circuit
+
+    def trial_description(self):
+        return '{}{}'.format(self.TRIAL_TYPE, self.circuit_num)
+
     def target_sequence(self):
         for target in self.targets:
             yield target
@@ -146,6 +154,8 @@ class Block(vrlab.Block):
     targets.
     '''
 
+    index = 0
+
     def __init__(self,
                  experiment,
                  effector,
@@ -161,10 +171,12 @@ class Block(vrlab.Block):
 
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
-            experiment.output, '{}-effector{}'.format(stamp, self.effector))
+            experiment.output, '{}-block{:02d}'.format(stamp, Block.index))
 
         logging.info('NEW BLOCK -- effector %s, trials %s',
                      self.effector, self.trial_factory.__name__)
+
+        Block.index += 1
 
     def setup(self):
         self.experiment.prox.addTarget(self.experiment.leds[self.effector])
@@ -180,35 +192,37 @@ class Block(vrlab.Block):
         # gzip recorded trial data for this block
         for f in os.listdir(self.output):
             if f.endswith('.csv'):
-                fn = os.path.join(self.output, f)
-                gz = fn + '.gz'
+                self._gzip_file(os.path.join(self.output, f))
 
-                source = ''
-                with open(fn) as src:
-                    source = src.read()
+    def _gzip_file(self, filename):
+        '''Gzip the contents of a file, and remove the original.'''
+        source = zipped = gz = filename + '.gz'
 
-                tgt = gzip.open(gz, 'wb')
-                tgt.write(source)
-                tgt.close()
+        with open(filename) as src:
+            source = src.read()
 
-                zipped = ''
-                with open(gz, 'rb') as tgt:
-                    zipped = tgt.read()
+        tgt = gzip.open(gz, 'wb')
+        tgt.write(source)
+        tgt.close()
 
-                tgt = gzip.open(gz)
-                verify = tgt.read()
-                tgt.close()
+        with open(gz, 'rb') as tgt:
+            zipped = tgt.read()
 
-                logging.info('gzipped %s (%d kbytes) as %s (%d kbytes)',
-                             fn, len(source) / 1000, gz, len(zipped))
+        logging.info('gzipped %s -> %s (%d -> %d kbytes)',
+                     filename, os.path.basename(gz),
+                     len(source) / 1000, len(zipped) / 1000)
 
-                # only remove source file if gzipped version is identical.
-                if source == verify:
-                    os.unlink(fn)
+        tgt = gzip.open(gz)
+        verify = tgt.read()
+        tgt.close()
+
+        # only remove source file if gzipped version is identical.
+        if source == verify:
+            os.unlink(filename)
 
     def generate_trials(self):
-        for ts in targets.CIRCUITS[:self.num_trials]:
-            yield self.trial_factory(self, [targets.NUMBERED[t] for t in ts])
+        for i, ts in enumerate(targets.CIRCUITS[:self.num_trials]):
+            yield self.trial_factory(self, [targets.NUMBERED[t] for t in ts], circuit=i)
 
 
 class Experiment(vrlab.Experiment):
@@ -228,7 +242,7 @@ class Experiment(vrlab.Experiment):
         If no such directory exists, it creates a new one.
         '''
         moment = now = datetime.datetime.now()
-        key = random.randint(0, 0xffffff)
+        key = '{:08x}'.format(random.randint(0, 0xffffffff))
         for bn in os.listdir(BASE_PATH):
             s, k = bn.split('-')
             then = datetime.datetime.strptime(s, TIMESTAMP_FORMAT)
@@ -236,11 +250,11 @@ class Experiment(vrlab.Experiment):
                 moment = then
                 key = k
                 break
-        return '{}-{:08x}'.format(moment.strftime(TIMESTAMP_FORMAT), key)
+        return '{}-{}'.format(moment.strftime(TIMESTAMP_FORMAT), key)
 
     def setup(self):
         # set up a folder to store data for a subject.
-        dirname = self.find_output(threshold_min=30)
+        dirname = self.find_output(threshold_min=7)
         self.output = os.path.join(BASE_PATH, dirname)
         logging.info('storing output in %s', self.output)
 
