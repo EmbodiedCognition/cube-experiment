@@ -201,13 +201,53 @@ class Trial(TimedMixin, TreeMixin):
             # located *exactly* at the origin (which, for the cube experiment,
             # is on the floor).
             good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
-            self.df.ix[~good, col:col+4] = float('nan')
+            self.df.ix[~good, col:col+3] = float('nan')
 
         replace_dropouts(Trial.ICOL.EFFECTOR_XYZC[0])
         for i, _ in self.marker_columns:
             replace_dropouts(i)
 
         logging.info('%s: loaded trial %s', self.basename, self.df.shape)
+
+    def svt(self, threshold=700, preserve=0.1):
+        '''Complete missing marker data using singular value thresholding.
+
+        Singular value thresholding is described in Cai, Candes, & Shen (2010),
+        "A Singular Value Thresholding Algorithm for Matrix Completion" (see
+        http://arxiv.org/pdf/0810.3286.pdf). The implementation here is rather
+        naive but seems to get the job done for the types of mocap data that we
+        gathered in the cube experiment.
+
+        '''
+        markers = [c for c in self.df.columns if c[:2].isdigit() and c[-1] in 'xyz' and self.df[c].count()]
+
+        means = [self.df[c].mean() for c in markers]
+        stds = [self.df[c].std() for c in markers]
+        zscores = [(self.df[c] - mu) / (std + 1e-10) for c, mu, std in zip(markers, means, stds)]
+
+        df = pd.DataFrame(zscores).T
+
+        logging.info('SVT: filling data %s using %d of %d values',
+                     df.shape, df.count().sum(), df.shape[0] * df.shape[1])
+
+        # learning rate heuristic, see section 5.1.2 for details.
+        learning_rate = 1.2 * df.shape[0] * df.shape[1] / df.count().sum()
+
+        def cdf(z): return pd.DataFrame(z, index=df.index, columns=df.columns)
+
+        x = y = cdf(np.zeros_like(df))
+        rmse = preserve + 1
+        while rmse > preserve:
+            err = df - x
+            y += learning_rate * err.fillna(0)
+            u, s, v = np.linalg.svd(y, full_matrices=False)
+            s = np.clip(s - threshold, 0, np.inf)
+            rmse = np.sqrt((err * err).mean().mean())
+            logging.info('SVT: error %f using %d singular values', rmse, len(s.nonzero()[0]))
+            x = cdf(np.dot(u, np.dot(np.diag(s), v)))
+
+        for c, mu, std in zip(markers, means, stds):
+            self.df[c] = std * x[c] + mu
 
     def realign(self, frame_rate=100., order=3, linear_weight=10):
         '''Realign raw marker data to regular time intervals.
