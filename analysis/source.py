@@ -209,7 +209,7 @@ class Trial(TimedMixin, TreeMixin):
 
         logging.info('%s: loaded trial %s', self.basename, self.df.shape)
 
-    def realign(self, frame_rate=100., order=1):
+    def realign(self, frame_rate=100., order=3, linear_weight=10):
         '''Realign raw marker data to regular time intervals.
 
         If order is nonzero, realignment will also perform spline interpolation
@@ -222,8 +222,14 @@ class Trial(TimedMixin, TreeMixin):
         frame_rate : float, optional
             Frame rate for desired time offsets. Defaults to 100Hz.
         order : int, optional
-            Order of desired interpolation. Defaults to 1 (linear
+            Order of desired interpolation. Defaults to 3 (cubic
             interpolation). Set to 0 for no interpolation.
+        linear_weight : float, optional
+            If `order` > 1, then perform linear interpolation on each column
+            before spline smoothing. The values computed by the linear
+            interpolation will be assigned this inverse weight for the "real"
+            higher-order spline interpolation. Defaults to 3. TODO: should
+            probably compute this automatically somehow.
         '''
         dt = 1 / frame_rate
         start = self.df.index[0]
@@ -232,9 +238,10 @@ class Trial(TimedMixin, TreeMixin):
         def reindex(column):
             return self.df[column].reindex(posts, method='ffill')
 
-        Spline = scipy.interpolate.InterpolatedUnivariateSpline
-        def interp(series):
-            return Spline(series.index, series, k=order)(posts)
+        def interp(x, y, w=None, k=1, s=None):
+            s = scipy.interpolate.UnivariateSpline(x, y, w=w, k=k, s=s)
+            #print(len(np.isnan(w).nonzero()[0]), s.get_residual(), s.get_knots().shape)
+            return s(posts)
 
         def gp(series):
             gp = sklearn.gaussian_process.GaussianProcess(
@@ -246,8 +253,35 @@ class Trial(TimedMixin, TreeMixin):
         MARKERS = Trial.ICOL.EFFECTOR_XYZC[0]
         values = [reindex(c) for c in self.df.columns[:MARKERS]]
         for column in self.df.columns[MARKERS:]:
-            series = self.df[column].dropna()
-            eligible = len(series) > order and not column.endswith('-c')
-            values.append(interp(series) if eligible else reindex(column))
+            series = self.df[column]
+            vals = None
+            if column.endswith('-c') or order == 0 or series.count() <= order:
+                vals = reindex(column)
+            elif order == 1:
+                series = series.dropna()
+                vals = interp(series.index, series.values, k=1, s=0)
+            else:
+                linear = series.interpolate()
+                w = int(frame_rate) // 5
+                std = pd.rolling_std(linear, w)
+                mu = std.mean()
+                std.iloc[:-w // 2] = std.iloc[w // 2:]
+                std.iloc[-w // 2:] = mu
+                std[std.isnull()] = mu
+                std[series.isnull()] *= linear_weight
+                vals = interp(linear.index, linear.values, w=100 / std, k=order)
+
+                '''
+                import lmj.plot
+                ax = lmj.plot.axes()
+                ax.plot(series.index, series, 'o', alpha=0.7, color=lmj.plot.COLOR11[0])
+                ax.plot(linear.index, linear, '.', alpha=0.7, color=lmj.plot.COLOR11[1])
+                ax.fill_between(linear.index, linear - std, linear + std, alpha=0.3, lw=0, color=lmj.plot.COLOR11[0])
+                ax.plot(posts, vals, '-', lw=3, alpha=0.7, color=lmj.plot.COLOR11[2])
+                ax.set_xlim(posts[0], posts[-1])
+                lmj.plot.show()
+                '''
+
+            values.append(vals)
 
         self.df = pd.DataFrame(dict(zip(self.df.columns, values)), index=posts)
