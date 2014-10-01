@@ -173,7 +173,7 @@ class Trial(TimedMixin, TreeMixin):
 
     @property
     def approx_frame_rate(self):
-        return self.df.index.diff().mean()
+        return (self.df.index[1:] - self.df.index[:-1]).mean()
 
     @property
     def marker_columns(self):
