@@ -175,7 +175,7 @@ class Trial(TimedMixin, TreeMixin):
     def target_contact_frames(self):
         targets = self.df['target']
         frames, = targets.diff().nonzero()
-        return np.concatenate([frames[1:], len(targets)]) - 1
+        return np.concatenate([frames[1:], [len(targets)]]) - 1
 
     def marker_trajectory(self, name):
         i = [i for i, h in self.marker_columns if h == name][0]
