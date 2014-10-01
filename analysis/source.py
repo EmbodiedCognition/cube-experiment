@@ -172,6 +172,10 @@ class Trial(TimedMixin, TreeMixin):
         self.df = None
 
     @property
+    def approx_frame_rate(self):
+        return self.df.index.diff().mean()
+
+    @property
     def marker_columns(self):
         for i, h in enumerate(self.df.columns):
             if h[:2].isdigit() and h.endswith('-x'):
@@ -181,6 +185,16 @@ class Trial(TimedMixin, TreeMixin):
     def target_contact_frames(self):
         frames, = self.df.target.diff().nonzero()
         return np.concatenate([frames[1:], [len(self.df.target)]]) - 1
+
+    def target_contact_frame(self, target):
+        idx = self.target_contact_frames
+        return idx[self.df.target.iloc[idx] == target]
+
+    def movement_from(self, source):
+        return self.df[self.df.source == source]
+
+    def movement_to(self, target):
+        return self.df[self.df.target == target]
 
     def marker_trajectory(self, name):
         i = [i for i, h in self.marker_columns if h == name][0]
