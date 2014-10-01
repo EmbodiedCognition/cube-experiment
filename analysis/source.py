@@ -249,7 +249,7 @@ class Trial(TimedMixin, TreeMixin):
         for c, mu, std in zip(markers, means, stds):
             self.df[c] = std * x[c] + mu
 
-    def realign(self, frame_rate=100., order=3, linear_weight=10):
+    def realign(self, frame_rate=100., order=3, dropout_decay=0.1):
         '''Realign raw marker data to regular time intervals.
 
         If order is nonzero, realignment will also perform spline interpolation
@@ -261,27 +261,36 @@ class Trial(TimedMixin, TreeMixin):
         ----------
         frame_rate : float, optional
             Frame rate for desired time offsets. Defaults to 100Hz.
+
         order : int, optional
             Order of desired interpolation. Defaults to 3 (cubic
             interpolation). Set to 0 for no interpolation.
-        linear_weight : float, optional
-            If `order` > 1, then perform linear interpolation on each column
-            before spline smoothing. The values computed by the linear
-            interpolation will be assigned this inverse weight for the "real"
-            higher-order spline interpolation. Defaults to 3. TODO: should
-            probably compute this automatically somehow.
+
+        dropout_decay : float, optional
+            If `order` > 1, perform linear interpolation on each column before
+            fitting higher-order splines, and then use the linearly interpolated
+            values as guides while fitting the higher-order spline.
+
+            To accomplish this "guiding" process, the values computed by the
+            linear interpolation will be assigned weights inversely proportional
+            to their distance from the nearest known channel value. This
+            parameter gives the slope of the weight decay process, as a
+            proportion of overall channel standard deviation. Defaults to 0.3.
         '''
         dt = 1 / frame_rate
         start = self.df.index[0]
         posts = np.arange(dt + start - start % dt, self.df.index[-1], dt)
+
+        def nans(z):
+            return len(np.isnan(z).nonzero()[0])
 
         def reindex(column):
             return self.df[column].reindex(posts, method='ffill')
 
         def interp(x, y, w=None, k=1, s=None):
             s = scipy.interpolate.UnivariateSpline(x, y, w=w, k=k, s=s)
-            #print(len(np.isnan(w).nonzero()[0]), s.get_residual(), s.get_knots().shape)
-            return s(posts)
+            #print(nans(x), nans(y), nans(w), s.get_residual(), s.get_knots().shape)
+            return s(posts), s
 
         def gp(series):
             gp = sklearn.gaussian_process.GaussianProcess(
@@ -299,25 +308,44 @@ class Trial(TimedMixin, TreeMixin):
                 vals = reindex(column)
             elif order == 1:
                 series = series.dropna()
-                vals = interp(series.index, series.values, k=1, s=0)
+                vals, _ = interp(series.index, series.values, k=1, s=0)
             else:
-                linear = series.interpolate()
+                # compute the distance (in frames) to the nearest non-dropout frame.
+                drops = series.isnull()
+                closest_l = [0]
+                for d in drops:
+                    closest_l.append(1 + closest_l[-1] if d else 0)
+                closest_r = [0]
+                for d in drops[::-1]:
+                    closest_r.append(1 + closest_r[-1] if d else 0)
+                closest = pd.Series(
+                    list(map(min, closest_l[1:], reversed(closest_r[1:]))),
+                    index=series.index)
+
+                # interpolate observed values linearly.
+                linear = series.interpolate().fillna(method='ffill').fillna(method='bfill')
+
+                # compute standard deviation of observations.
                 w = int(frame_rate) // 5
-                std = pd.rolling_std(linear, w)
-                mu = std.mean()
-                std.iloc[:-w // 2] = std.iloc[w // 2:]
-                std.iloc[-w // 2:] = mu
-                std[std.isnull()] = mu
-                std[series.isnull()] *= linear_weight
-                vals = interp(linear.index, linear.values, w=100 / std, k=order)
+                std = pd.rolling_std(linear, w).shift(-w // 2)
+                std[std.isnull()] = std.mean()
+
+                # for dropouts, replace standard deviation with a triangular
+                # window of uncertainty that increases with distance to the
+                # nearest good frame.
+                std[drops] = (1 + closest[drops]) * std.mean() * dropout_decay
+
+                # compute higher-order spline fit.
+                vals, spl = interp(linear.index, linear.values, w=1 / std, k=order)
 
                 '''
                 import lmj.plot
                 ax = lmj.plot.axes()
-                ax.plot(series.index, series, 'o', alpha=0.7, color=lmj.plot.COLOR11[0])
-                ax.plot(linear.index, linear, '.', alpha=0.7, color=lmj.plot.COLOR11[1])
-                ax.fill_between(linear.index, linear - std, linear + std, alpha=0.3, lw=0, color=lmj.plot.COLOR11[0])
-                ax.plot(posts, vals, '-', lw=3, alpha=0.7, color=lmj.plot.COLOR11[2])
+                ax.plot(series.index, series, 'o', alpha=0.3, color=lmj.plot.COLOR11[0])
+                ax.plot(linear.index, linear, '+', alpha=0.3, color=lmj.plot.COLOR11[1])
+                ax.fill_between(linear.index, linear - std, linear + std, alpha=0.2, lw=0, color=lmj.plot.COLOR11[1])
+                ax.plot(spl.get_knots(), spl(spl.get_knots()), 'x', lw=0, mew=2, alpha=0.7, color=lmj.plot.COLOR11[2])
+                ax.plot(posts, vals, '-', lw=2, alpha=0.7, color=lmj.plot.COLOR11[2])
                 ax.set_xlim(posts[0], posts[-1])
                 lmj.plot.show()
                 '''
