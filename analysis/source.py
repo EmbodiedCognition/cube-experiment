@@ -30,6 +30,12 @@ class Experiment:
         for s in self.subjects:
             yield from s.trials
 
+    def trials_matching(self, pattern):
+        for t in self.trials:
+            if t.matches(pattern):
+                t.load()
+                yield t
+
     def load(self, pattern):
         for s in self.subjects:
             if s.matches(pattern):
@@ -173,9 +179,8 @@ class Trial(TimedMixin, TreeMixin):
 
     @property
     def target_contact_frames(self):
-        targets = self.df['target']
-        frames, = targets.diff().nonzero()
-        return np.concatenate([frames[1:], [len(targets)]]) - 1
+        frames, = self.df.target.diff().nonzero()
+        return np.concatenate([frames[1:], [len(self.df.target)]]) - 1
 
     def marker_trajectory(self, name):
         i = [i for i, h in self.marker_columns if h == name][0]
