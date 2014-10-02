@@ -39,6 +39,12 @@ class Trial(vrlab.Trial):
         self.records = []
         self.add_periodic(1. / 100, self.record_data)
 
+    @property
+    def index(self):
+        if os.path.isdir(self.block.output):
+            return len(os.listdir(self.block.output))
+        return 0
+
     def record_data(self):
         self.records.append((
             viz.tick() - self.start_tick,
@@ -75,10 +81,11 @@ class Trial(vrlab.Trial):
 
     def write_records(self):
         output = os.path.join(
-            self.block.output, '{}.csv'.format(self.trial_description()))
+            self.block.output,
+            '{:02d}-{}.csv.gz'.format(self.index, self.trial_description()))
 
         # open file and define helper to write data
-        handle = open(output, 'w')
+        handle = gzip.open(output, 'w')
         def w(msg, *args, **kwargs):
             handle.write(msg.format(*args, **kwargs))
 
@@ -165,7 +172,7 @@ class Block(vrlab.Block):
         self.num_trials = num_trials
 
         self.output = os.path.join(
-            experiment.output, 'block{:02d}'.format(self.index))
+            experiment.output, '{:02d}-block'.format(self.index))
 
         logging.info('NEW BLOCK -- effector %s, trials %s',
                      self.effector, self.trial_factory.__name__)
@@ -186,37 +193,6 @@ class Block(vrlab.Block):
 
     def teardown(self):
         self.experiment.prox.clearTargets()
-
-        # gzip recorded trial data for this block
-        for f in os.listdir(self.output):
-            if f.endswith('.csv'):
-                self._gzip_file(os.path.join(self.output, f))
-
-    def _gzip_file(self, filename):
-        '''Gzip the contents of a file, and remove the original.'''
-        source = zipped = gz = filename + '.gz'
-
-        with open(filename) as src:
-            source = src.read()
-
-        tgt = gzip.open(gz, 'wb')
-        tgt.write(source)
-        tgt.close()
-
-        with open(gz, 'rb') as tgt:
-            zipped = tgt.read()
-
-        logging.info('gzipped %s -> %s (%d -> %d kbytes)',
-                     filename, os.path.basename(gz),
-                     len(source) / 1000, len(zipped) / 1000)
-
-        tgt = gzip.open(gz)
-        verify = tgt.read()
-        tgt.close()
-
-        # only remove source file if gzipped version is identical.
-        if source == verify:
-            os.unlink(filename)
 
     def generate_trials(self):
         for i, ts in enumerate(targets.CIRCUITS[:self.num_trials]):
