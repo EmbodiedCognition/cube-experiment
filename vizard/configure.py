@@ -16,11 +16,12 @@ TRACKER = None
 
 def workflow():
     vrlab.sounds.cowbell.play()
-    yield viztask.waitTime(4)
+    yield viztask.waitTime(5)
     for target in targets.NUMBERED:
         if True:# target.center == (0, 0, 0):
             target.sound.play()
-            yield viztask.waitTime(4)
+            yield viztask.waitTime(10)
+            vrlab.sounds.drip.play()
             x = y = z = n = 0
             for _ in range(10):
                 for m in M:
@@ -35,7 +36,8 @@ def workflow():
                 n = 1
             else:
                 vrlab.sounds.cowbell.play()
-            logging.info('%s --> %.2f %.2f %.2f', target, x / n, y / n, z / n)
+            target.center = x / n, y / n, z / n
+            print(target)
 
 
 def main():
