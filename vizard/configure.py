@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import logging
 import sys
 
 import viz
@@ -54,9 +53,4 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(
-            stream=sys.stdout,
-            level=logging.DEBUG,
-            format='%(levelname).1s %(asctime)s %(name)s:%(lineno)d %(message)s',
-        )
     main()
