@@ -34,7 +34,6 @@ def workflow():
                 time.sleep(0.01)
             if n == 0:
                 n = 1
-            else:
                 vrlab.sounds.cowbell.play()
             target.center = x / n, y / n, z / n
             print('    {},'.format(target))
