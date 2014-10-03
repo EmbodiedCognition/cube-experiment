@@ -130,7 +130,58 @@ class Block(TimedMixin, TreeMixin):
                 t.load()
 
 
-class Trial(TimedMixin, TreeMixin):
+class Movement:
+    class ICOL:
+        TIME = 0
+        SOURCE_ID = 1
+        SOURCE_XYZ = [2, 3, 4]
+        TARGET_ID = 5
+        TARGET_XYZ = [6, 7, 8]
+        EFFECTOR_XYZC = [9, 10, 11, 12]
+
+    class COL:
+        TIME = 'time'
+        SOURCE_ID = 'source'
+        SOURCE_XYZ = ['source-x', 'source-y', 'source-z']
+        TARGET_ID = 'target'
+        TARGET_XYZ = ['target-x', 'target-y', 'target-z']
+        EFFECTOR_XYZC = ['effector-x', 'effector-y', 'effector-z', 'effector-c']
+
+    def __init__(self, df=None):
+        self.df = df
+
+    @property
+    def approx_frame_rate(self):
+        return (self.df.index[1:] - self.df.index[:-1]).mean()
+
+    @property
+    def marker_columns(self):
+        for i, h in enumerate(self.df.columns):
+            if h[:2].isdigit() and h.endswith('-x'):
+                yield i, h[3:-2]
+
+    def marker_trajectory(self, name):
+        i = [i for i, h in self.marker_columns if h == name][0]
+        df = self.df.iloc[:, i:i+3].copy()
+        df.columns = list('xyz')
+        return df
+
+    def clear(self):
+        self.df = None
+
+    def _replace_dropouts(self, col):
+        '''For a given marker-start column, replace dropout frames with nans.
+        '''
+        m = self.df.iloc[:, col:col+4]
+        x, y, z, c = (m[c] for c in m.columns)
+        # "good" frames have reasonable condition numbers and are not
+        # located *exactly* at the origin (which, for the cube experiment,
+        # is on the floor).
+        good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
+        self.df.ix[~good, col:col+3] = float('nan')
+
+
+class Trial(Movement, TimedMixin, TreeMixin):
     '''Encapsulates data from a single trial (from one block of one subject).
 
     Parameters
@@ -150,81 +201,27 @@ class Trial(TimedMixin, TreeMixin):
         Data for this trial.
     '''
 
-    class ICOL:
-        TIME = 0
-        SOURCE_ID = 1
-        SOURCE_XYZ = [2, 3, 4]
-        TARGET_ID = 5
-        TARGET_XYZ = [6, 7, 8]
-        EFFECTOR_XYZC = [9, 10, 11, 12]
-
-    class COL:
-        TIME = 'time'
-        SOURCE_ID = 'source'
-        SOURCE_XYZ = ['source-x', 'source-y', 'source-z']
-        TARGET_ID = 'target'
-        TARGET_XYZ = ['target-x', 'target-y', 'target-z']
-        EFFECTOR_XYZC = ['effector-x', 'effector-y', 'effector-z', 'effector-c']
-
     def __init__(self, block, basename):
+        super().__init__()
         self.block = self.parent = block
         self.basename = basename
-        self.df = None
-
-    @property
-    def approx_frame_rate(self):
-        return (self.df.index[1:] - self.df.index[:-1]).mean()
-
-    @property
-    def marker_columns(self):
-        for i, h in enumerate(self.df.columns):
-            if h[:2].isdigit() and h.endswith('-x'):
-                yield i, h[3:-2]
-
-    @property
-    def target_contact_frames(self):
-        frames, = self.df.target.diff().nonzero()
-        return np.concatenate([frames[1:], [len(self.df.target)]]) - 1
-
-    def target_contact_frame(self, target):
-        idx = self.target_contact_frames
-        return idx[self.df.target.iloc[idx] == target]
 
     def movement_from(self, source):
-        return self.df[self.df.source == source]
+        return Movement(self.df[self.df.source == source])
 
     def movement_to(self, target):
-        return self.df[self.df.target == target]
-
-    def marker_trajectory(self, name):
-        i = [i for i, h in self.marker_columns if h == name][0]
-        df = self.df.iloc[:, i:i+3].copy()
-        df.columns = list('xyz')
-        return df
+        return Movement(self.df[self.df.target == target])
 
     @functools.lru_cache(maxsize=5)
     def matches(self, pattern):
         return fnmatch.fnmatch(self.root, pattern)
 
-    def clear(self):
-        self.df = None
-
     def load(self):
         self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
 
-        # for each marker, replace dropout frames with nans.
-        def replace_dropouts(col):
-            m = self.df.iloc[:, col:col+4]
-            x, y, z, c = (m[c] for c in m.columns)
-            # "good" frames have reasonable condition numbers and are not
-            # located *exactly* at the origin (which, for the cube experiment,
-            # is on the floor).
-            good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
-            self.df.ix[~good, col:col+3] = float('nan')
-
-        replace_dropouts(Trial.ICOL.EFFECTOR_XYZC[0])
+        self._replace_dropouts(Movement.ICOL.EFFECTOR_XYZC[0])
         for i, _ in self.marker_columns:
-            replace_dropouts(i)
+            self._replace_dropouts(i)
 
         logging.info('%s: loaded trial %s', self.basename, self.df.shape)
 
@@ -236,7 +233,6 @@ class Trial(TimedMixin, TreeMixin):
         http://arxiv.org/pdf/0810.3286.pdf). The implementation here is rather
         naive but seems to get the job done for the types of mocap data that we
         gathered in the cube experiment.
-
         '''
         markers = [c for c in self.df.columns if c[:2].isdigit() and c[-1] in 'xyz' and self.df[c].count()]
 
@@ -319,7 +315,7 @@ class Trial(TimedMixin, TreeMixin):
             gp.fit(np.atleast_2d(series.index).T, series)
             return gp.predict(np.atleast_2d(posts).T)
 
-        MARKERS = Trial.ICOL.EFFECTOR_XYZC[0]
+        MARKERS = Movement.ICOL.EFFECTOR_XYZC[0]
         values = [reindex(c) for c in self.df.columns[:MARKERS]]
         for column in self.df.columns[MARKERS:]:
             series = self.df[column]
