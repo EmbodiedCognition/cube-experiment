@@ -246,8 +246,9 @@ class Trial(TimedMixin, TreeMixin):
 
         df = pd.DataFrame(zscores).T
 
-        logging.info('SVT: filling data %s using %d of %d values',
-                     df.shape, df.count().sum(), df.shape[0] * df.shape[1])
+        n = df.shape[0] * df.shape[1]
+        logging.info('SVT: filling data %s, missing %d of %d values',
+                     df.shape, n - df.count().sum(), n)
 
         # learning rate heuristic, see section 5.1.2 for details.
         learning_rate = 1.2 * df.shape[0] * df.shape[1] / df.count().sum()
