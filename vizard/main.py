@@ -211,19 +211,17 @@ class Experiment(vrlab.Experiment):
     def find_output(self, threshold_min):
         '''Locate an output directory for a subject.
 
-        This method looks at existing output directory names and reuses an
-        existing directory if one was modified in the past "threshold" minutes.
-        If no such directory exists, it creates a new one.
+        This method looks at existing output directories and reuses an existing
+        directory if one was modified in the past "threshold" minutes. If no
+        such directory exists, it creates a new one.
         '''
         now = datetime.datetime.now()
-        key = '{:08x}'.format(random.randint(0, 0xffffffff))
         for bn in os.listdir(BASE_PATH):
             then = datetime.datetime.fromtimestamp(
                 os.path.getmtime(os.path.join(BASE_PATH, bn)))
             if now - then < datetime.timedelta(seconds=60 * threshold_min):
-                key = bn
-                break
-        return key
+                return key
+        return '{:08x}'.format(random.randint(0, 0xffffffff))
 
     def setup(self):
         # set up a folder to store data for a subject.
