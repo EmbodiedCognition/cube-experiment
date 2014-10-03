@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import time
 
 import viz
 import vizshape
