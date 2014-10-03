@@ -160,11 +160,29 @@ class Movement:
             if h[:2].isdigit() and h.endswith('-x'):
                 yield i, h[3:-2]
 
-    def marker_trajectory(self, name):
-        i = [i for i, h in self.marker_columns if h == name][0]
+    def get_trajectory(self, i):
         df = self.df.iloc[:, i:i+3].copy()
         df.columns = list('xyz')
         return df
+
+    def marker_trajectory(self, name):
+        return self.get_trajectory(
+            [i for i, h in self.marker_columns if h == name][0])
+
+    def effector_trajectory(self):
+        return self.get_trajectory(Movement.ICOL.EFFECTOR_XYZC[0])
+
+    def target_trajectory(self):
+        return self.get_trajectory(Movement.ICOL.TARGET_XYZ[0])
+
+    def source_trajectory(self):
+        return self.get_trajectory(Movement.ICOL.SOURCE_XYZ[0])
+
+    def distance_to_target(self):
+        return np.sqrt((self.effector_trajectory - self.target_trajectory) ** 2)
+
+    def distance_from_source(self):
+        return np.sqrt((self.effector_trajectory - self.source_trajectory) ** 2)
 
     def clear(self):
         self.df = None
