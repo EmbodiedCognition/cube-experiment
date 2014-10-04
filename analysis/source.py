@@ -249,7 +249,7 @@ class Trial(TimedMixin, TreeMixin):
         for c, mu, std in zip(markers, means, stds):
             self.df[c] = std * x[c] + mu
 
-    def realign(self, frame_rate=100., order=3, dropout_decay=0.1):
+    def realign(self, frame_rate=100., order=3, dropout_decay=0.1, accuracy=1):
         '''Realign raw marker data to regular time intervals.
 
         If order is nonzero, realignment will also perform spline interpolation
@@ -276,6 +276,12 @@ class Trial(TimedMixin, TreeMixin):
             to their distance from the nearest known channel value. This
             parameter gives the slope of the weight decay process, as a
             proportion of overall channel standard deviation. Defaults to 0.3.
+
+        accuracy : float, optional
+            Accuracy of the higher-order spline fit relative to observed (and,
+            to a lesser extent, linearly-interpolated) data points. Set this to
+            a higher value to fit the spline closer to the data, with the
+            possible cost of over-fitting. Defaults to 1.
         '''
         dt = 1 / frame_rate
         start = self.df.index[0]
@@ -336,7 +342,7 @@ class Trial(TimedMixin, TreeMixin):
                 std[drops] = (1 + closest[drops]) * std.mean() * dropout_decay
 
                 # compute higher-order spline fit.
-                vals, spl = interp(linear.index, linear.values, w=1 / std, k=order)
+                vals, spl = interp(linear.index, linear.values, w=accuracy / std, k=order)
 
                 '''
                 import lmj.plot
