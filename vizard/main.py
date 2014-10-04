@@ -20,7 +20,6 @@ import suit
 import targets
 
 # module constants
-TIMESTAMP_FORMAT = '%Y%m%d%H%M%S'
 BASE_PATH = 'C:\\Documents and Settings\\vrlab\\Desktop\\target-data'
 
 
@@ -39,6 +38,12 @@ class Trial(vrlab.Trial):
         self.suit = block.experiment.suit
         self.records = []
         self.add_periodic(1. / 100, self.record_data)
+
+    @property
+    def index(self):
+        if os.path.isdir(self.block.output):
+            return len(os.listdir(self.block.output))
+        return 0
 
     def record_data(self):
         self.records.append((
@@ -75,13 +80,12 @@ class Trial(vrlab.Trial):
         return self.TRIAL_TYPE
 
     def write_records(self):
-        stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         output = os.path.join(
             self.block.output,
-            '{}-{}.csv'.format(stamp, self.trial_description()))
+            '{:02d}-{}.csv.gz'.format(self.index, self.trial_description()))
 
         # open file and define helper to write data
-        handle = open(output, 'w')
+        handle = gzip.open(output, 'w')
         def w(msg, *args, **kwargs):
             handle.write(msg.format(*args, **kwargs))
 
@@ -91,7 +95,7 @@ class Trial(vrlab.Trial):
         w('target,target-x,target-y,target-z,')
         w('effector,effector-x,effector-y,effector-z,effector-c')
         for label in suit.MARKER_LABELS:
-            w(',{0}-x,{0}-y,{0}-z,{0}-c'.format(label))
+            w(',{0}-x,{0}-y,{0}-z,{0}-c', label)
         w('\n')
 
         # write data frames
@@ -167,9 +171,8 @@ class Block(vrlab.Block):
         self.trial_factory = trial_factory
         self.num_trials = num_trials
 
-        stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
-            experiment.output, '{}-block{:02d}'.format(stamp, self.index))
+            experiment.output, '{:02d}-block'.format(self.index))
 
         logging.info('NEW BLOCK -- effector %s, trials %s',
                      self.effector, self.trial_factory.__name__)
@@ -191,37 +194,6 @@ class Block(vrlab.Block):
     def teardown(self):
         self.experiment.prox.clearTargets()
 
-        # gzip recorded trial data for this block
-        for f in os.listdir(self.output):
-            if f.endswith('.csv'):
-                self._gzip_file(os.path.join(self.output, f))
-
-    def _gzip_file(self, filename):
-        '''Gzip the contents of a file, and remove the original.'''
-        source = zipped = gz = filename + '.gz'
-
-        with open(filename) as src:
-            source = src.read()
-
-        tgt = gzip.open(gz, 'wb')
-        tgt.write(source)
-        tgt.close()
-
-        with open(gz, 'rb') as tgt:
-            zipped = tgt.read()
-
-        logging.info('gzipped %s -> %s (%d -> %d kbytes)',
-                     filename, os.path.basename(gz),
-                     len(source) / 1000, len(zipped) / 1000)
-
-        tgt = gzip.open(gz)
-        verify = tgt.read()
-        tgt.close()
-
-        # only remove source file if gzipped version is identical.
-        if source == verify:
-            os.unlink(filename)
-
     def generate_trials(self):
         for i, ts in enumerate(targets.CIRCUITS[:self.num_trials]):
             yield self.trial_factory(self, [targets.NUMBERED[t] for t in ts], circuit=i)
@@ -239,20 +211,17 @@ class Experiment(vrlab.Experiment):
     def find_output(self, threshold_min):
         '''Locate an output directory for a subject.
 
-        This method looks at existing output directory names and reuses an
-        existing directory if one was created in the past "threshold" minutes.
-        If no such directory exists, it creates a new one.
+        This method looks at existing output directories and reuses an existing
+        directory if one was modified in the past "threshold" minutes. If no
+        such directory exists, it creates a new one.
         '''
-        moment = now = datetime.datetime.now()
-        key = '{:08x}'.format(random.randint(0, 0xffffffff))
+        now = datetime.datetime.now()
         for bn in os.listdir(BASE_PATH):
-            s, k = bn.split('-')
-            then = datetime.datetime.strptime(s, TIMESTAMP_FORMAT)
+            then = datetime.datetime.fromtimestamp(
+                os.path.getmtime(os.path.join(BASE_PATH, bn)))
             if now - then < datetime.timedelta(seconds=60 * threshold_min):
-                moment = then
-                key = k
-                break
-        return '{}-{}'.format(moment.strftime(TIMESTAMP_FORMAT), key)
+                return key
+        return '{:08x}'.format(random.randint(0, 0xffffffff))
 
     def setup(self):
         # set up a folder to store data for a subject.

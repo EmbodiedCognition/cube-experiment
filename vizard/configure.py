@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import logging
 import sys
+import time
 
 import viz
 import vizshape
@@ -16,11 +16,12 @@ TRACKER = None
 
 def workflow():
     vrlab.sounds.cowbell.play()
-    yield viztask.waitTime(4)
+    yield viztask.waitTime(5)
     for target in targets.NUMBERED:
         if True:# target.center == (0, 0, 0):
             target.sound.play()
-            yield viztask.waitTime(4)
+            yield viztask.waitTime(10)
+            vrlab.sounds.drip.play()
             x = y = z = n = 0
             for _ in range(10):
                 for m in M:
@@ -31,11 +32,12 @@ def workflow():
                         y += yi
                         z += zi
                         n += 1
+                time.sleep(0.01)
             if n == 0:
                 n = 1
-            else:
                 vrlab.sounds.cowbell.play()
-            logging.info('%s --> %.2f %.2f %.2f', target, x / n, y / n, z / n)
+            target.center = x / n, y / n, z / n
+            print('    {},'.format(target))
 
 
 def main():
@@ -52,9 +54,4 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(
-            stream=sys.stdout,
-            level=logging.DEBUG,
-            format='%(levelname).1s %(asctime)s %(name)s:%(lineno)d %(message)s',
-        )
     main()
