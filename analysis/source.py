@@ -132,11 +132,11 @@ class Block(TimedMixin, TreeMixin):
 
 class Movement:
     class ICOL:
-        TIME = 0
-        SOURCE_ID = 1
-        SOURCE_XYZ = [2, 3, 4]
-        TARGET_ID = 5
-        TARGET_XYZ = [6, 7, 8]
+        SOURCE_ID = 0
+        SOURCE_XYZ = [1, 2, 3]
+        TARGET_ID = 4
+        TARGET_XYZ = [5, 6, 7]
+        EFFECTOR_ID = 8
         EFFECTOR_XYZC = [9, 10, 11, 12]
 
     class COL:
@@ -145,6 +145,7 @@ class Movement:
         SOURCE_XYZ = ['source-x', 'source-y', 'source-z']
         TARGET_ID = 'target'
         TARGET_XYZ = ['target-x', 'target-y', 'target-z']
+        EFFECTOR_ID = 'effector'
         EFFECTOR_XYZC = ['effector-x', 'effector-y', 'effector-z', 'effector-c']
 
     def __init__(self, df=None):
@@ -179,10 +180,12 @@ class Movement:
         return self.get_trajectory(Movement.ICOL.SOURCE_XYZ[0])
 
     def distance_to_target(self):
-        return np.sqrt((self.effector_trajectory - self.target_trajectory) ** 2)
+        df = self.effector_trajectory() - self.target_trajectory()
+        return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def distance_from_source(self):
-        return np.sqrt((self.effector_trajectory - self.source_trajectory) ** 2)
+        df = self.effector_trajectory() - self.source_trajectory()
+        return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def clear(self):
         self.df = None
