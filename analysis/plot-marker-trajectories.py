@@ -15,7 +15,7 @@ def main(root, pattern='*5/*block00/*circuit00.csv.gz', markers='r-fing-index l-
     with plots.space() as ax:
         for t in source.Experiment(root).trials_matching(pattern):
             for i, marker in enumerate(markers.split()):
-                df = t.marker_trajectory(marker)
+                df = t.trajectory(marker)
                 ax.plot(np.asarray(df.x),
                         np.asarray(df.z),
                         zs=np.asarray(df.y),
@@ -24,7 +24,7 @@ def main(root, pattern='*5/*block00/*circuit00.csv.gz', markers='r-fing-index l-
             continue
             t.realign(order=3)
             for i, marker in enumerate(markers.split()):
-                df = t.marker_trajectory(marker)
+                df = t.trajectory(marker)
                 ax.plot(np.asarray(df.x),
                         np.asarray(df.z),
                         zs=np.asarray(df.y),

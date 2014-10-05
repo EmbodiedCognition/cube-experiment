@@ -131,23 +131,6 @@ class Block(TimedMixin, TreeMixin):
 
 
 class Movement:
-    class ICOL:
-        SOURCE_ID = 0
-        SOURCE_XYZ = [1, 2, 3]
-        TARGET_ID = 4
-        TARGET_XYZ = [5, 6, 7]
-        EFFECTOR_ID = 8
-        EFFECTOR_XYZC = [9, 10, 11, 12]
-
-    class COL:
-        TIME = 'time'
-        SOURCE_ID = 'source'
-        SOURCE_XYZ = ['source-x', 'source-y', 'source-z']
-        TARGET_ID = 'target'
-        TARGET_XYZ = ['target-x', 'target-y', 'target-z']
-        EFFECTOR_ID = 'effector'
-        EFFECTOR_XYZC = ['effector-x', 'effector-y', 'effector-z', 'effector-c']
-
     def __init__(self, df=None):
         self.df = df
 
@@ -155,29 +138,22 @@ class Movement:
     def approx_frame_rate(self):
         return (self.df.index[1:] - self.df.index[:-1]).mean()
 
-    @property
-    def marker_columns(self):
-        for i, h in enumerate(self.df.columns):
-            if h[:2].isdigit() and h.endswith('-x'):
-                yield i, h[3:-2]
-
-    def get_trajectory(self, i):
-        df = self.df.iloc[:, i:i+3].copy()
+    def trajectory(self, marker):
+        x = marker + '-x'
+        if x not in self.df.columns:
+            marker = [c for c in self.df.columns if c.endswith(x)][0][:-2]
+        df = self.df.loc[:, marker + '-x':marker + '-z'].copy()
         df.columns = list('xyz')
         return df
 
-    def marker_trajectory(self, name):
-        return self.get_trajectory(
-            [i for i, h in self.marker_columns if h == name][0])
-
     def effector_trajectory(self):
-        return self.get_trajectory(Movement.ICOL.EFFECTOR_XYZC[0])
+        return self.trajectory('effector')
 
     def target_trajectory(self):
-        return self.get_trajectory(Movement.ICOL.TARGET_XYZ[0])
+        return self.trajectory('target')
 
     def source_trajectory(self):
-        return self.get_trajectory(Movement.ICOL.SOURCE_XYZ[0])
+        return self.trajectory('source')
 
     def distance_to_target(self):
         df = self.effector_trajectory() - self.target_trajectory()
@@ -190,16 +166,16 @@ class Movement:
     def clear(self):
         self.df = None
 
-    def _replace_dropouts(self, col):
+    def _replace_dropouts(self, marker):
         '''For a given marker-start column, replace dropout frames with nans.
         '''
-        m = self.df.iloc[:, col:col+4]
+        m = self.df.loc[:, marker + '-x':marker + '-c']
         x, y, z, c = (m[c] for c in m.columns)
         # "good" frames have reasonable condition numbers and are not
         # located *exactly* at the origin (which, for the cube experiment,
         # is on the floor).
         good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
-        self.df.ix[~good, col:col+3] = float('nan')
+        self.df.ix[~good, marker + '-x':marker + '-z'] = float('nan')
 
 
 class Trial(Movement, TimedMixin, TreeMixin):
@@ -239,11 +215,9 @@ class Trial(Movement, TimedMixin, TreeMixin):
 
     def load(self):
         self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
-
-        self._replace_dropouts(Movement.ICOL.EFFECTOR_XYZC[0])
-        for i, _ in self.marker_columns:
-            self._replace_dropouts(i)
-
+        for column in self.df.columns:
+            if column.endswith('-c'):
+                self._replace_dropouts(column[:-2])
         logging.info('%s: loaded trial %s', self.basename, self.df.shape)
 
     def svt(self, threshold=700, preserve=0.1):
@@ -342,7 +316,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
             gp.fit(np.atleast_2d(series.index).T, series)
             return gp.predict(np.atleast_2d(posts).T)
 
-        MARKERS = Movement.ICOL.EFFECTOR_XYZC[0]
+        MARKERS = 9
         values = [reindex(c) for c in self.df.columns[:MARKERS]]
         for column in self.df.columns[MARKERS:]:
             series = self.df[column]
