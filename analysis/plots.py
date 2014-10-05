@@ -3,6 +3,14 @@ import lmj.plot
 
 
 @contextlib.contextmanager
+def plot(show=True):
+    ax = lmj.plot.axes()
+    yield ax
+    if show:
+        lmj.plot.show()
+
+
+@contextlib.contextmanager
 def space(show=True):
     ax = lmj.plot.axes(111, projection='3d', aspect='equal')
     yield ax
