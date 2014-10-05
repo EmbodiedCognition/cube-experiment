@@ -140,6 +140,9 @@ class Movement:
 
     def trajectory(self, marker):
         x = marker + '-x'
+        # if "marker" isn't a column in our dataframe, it might not match
+        # exactly because most marker names are prefixed by numbers. so look for
+        # a column in the dataframe that ends with the name we want.
         if x not in self.df.columns:
             marker = [c for c in self.df.columns if c.endswith(x)][0][:-2]
         df = self.df.loc[:, marker + '-x':marker + '-z'].copy()
