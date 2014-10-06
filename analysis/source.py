@@ -137,6 +137,18 @@ class Movement:
     def approx_frame_rate(self):
         return (self.df.index[1:] - self.df.index[:-1]).mean()
 
+    @property
+    def effector_trajectory(self):
+        return self.trajectory('effector')
+
+    @property
+    def target_trajectory(self):
+        return self.trajectory('target')
+
+    @property
+    def source_trajectory(self):
+        return self.trajectory('source')
+
     def trajectory(self, marker):
         x = marker + '-x'
         # if "marker" isn't a column in our dataframe, it might not match
@@ -148,21 +160,12 @@ class Movement:
         df.columns = list('xyz')
         return df
 
-    def effector_trajectory(self):
-        return self.trajectory('effector')
-
-    def target_trajectory(self):
-        return self.trajectory('target')
-
-    def source_trajectory(self):
-        return self.trajectory('source')
-
     def distance_to_target(self):
-        df = self.effector_trajectory() - self.target_trajectory()
+        df = self.effector_trajectory - self.target_trajectory
         return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def distance_from_source(self):
-        df = self.effector_trajectory() - self.source_trajectory()
+        df = self.effector_trajectory - self.source_trajectory
         return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def clear(self):
