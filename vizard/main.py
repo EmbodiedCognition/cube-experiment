@@ -37,7 +37,7 @@ class Trial(vrlab.Trial):
 
         self.suit = block.experiment.suit
         self.records = []
-        self.add_periodic(1. / 100, self.record_data)
+        self._timer = self.add_periodic(1. / 100, self.record_data)
 
     @property
     def index(self):

@@ -95,6 +95,10 @@ class Task(viz.EventClass):
         callback : callable (no arguments)
             Call this function every `period` seconds.
 
+        Returns
+        -------
+        timer_id :
+            The Vizard timer ID. Can be used to kill this periodic event.
         '''
         timer_id = 1 + max(self._timers)
         self._timers.append(timer_id)
@@ -106,6 +110,18 @@ class Task(viz.EventClass):
             viz.callback(viz.TIMER_EVENT, clock)
             viz.starttimer(timer_id, period, viz.FOREVER)
         viz.callback(self.PRE_RUN_EVENT, start)
+
+        return timer_id
+
+    def stop_periodic(self, timer_id):
+        '''Stop a periodic event from occurring.
+
+        Parameters
+        ----------
+        timer_id : int
+            The Vizard ID of the timer to stop.
+        '''
+        viz.killtimer(timer_id)
 
 
 class Trial(Task):
