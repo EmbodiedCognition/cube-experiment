@@ -20,6 +20,7 @@ import suit
 import targets
 
 # module constants
+TIMESTAMP_FORMAT = '%Y%m%d%H%M%S'
 BASE_PATH = 'C:\\Documents and Settings\\vrlab\\Desktop\\target-data'
 
 
@@ -37,7 +38,7 @@ class Trial(vrlab.Trial):
 
         self.suit = block.experiment.suit
         self.records = []
-        self.add_periodic(1. / 100, self.record_data)
+        self._timer = self.add_periodic(1. / 100, self.record_data)
 
     @property
     def index(self):
@@ -77,12 +78,13 @@ class Trial(vrlab.Trial):
         self.write_records()
 
     def trial_description(self):
-        return self.TRIAL_TYPE
+        return '{}{:02d}'.format(self.TRIAL_TYPE, self.index)
 
     def write_records(self):
+        stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         output = os.path.join(
             self.block.output,
-            '{:02d}-{}.csv.gz'.format(self.index, self.trial_description()))
+            '{}-{}.csv.gz'.format(stamp, self.trial_description()))
 
         # open file and define helper to write data
         handle = gzip.open(output, 'w')
@@ -133,7 +135,7 @@ class CircuitTrial(Trial):
         self.circuit_num = circuit
 
     def trial_description(self):
-        return '{}{}'.format(self.TRIAL_TYPE, self.circuit_num)
+        return '{}{:02d}'.format(self.TRIAL_TYPE, self.circuit_num)
 
     def target_sequence(self):
         for target in self.targets:
@@ -171,8 +173,9 @@ class Block(vrlab.Block):
         self.trial_factory = trial_factory
         self.num_trials = num_trials
 
+        stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
-            experiment.output, '{:02d}-block'.format(self.index))
+            experiment.output, '{}-block{:02d}'.format(stamp, self.index))
 
         logging.info('NEW BLOCK -- effector %s, trials %s',
                      self.effector, self.trial_factory.__name__)
@@ -217,11 +220,12 @@ class Experiment(vrlab.Experiment):
         '''
         now = datetime.datetime.now()
         for bn in os.listdir(BASE_PATH):
-            then = datetime.datetime.fromtimestamp(
-                os.path.getmtime(os.path.join(BASE_PATH, bn)))
+            stamp, _ = bn.split('-')
+            then = datetime.datetime.strptime(stamp, TIMESTAMP_FORMAT)
             if now - then < datetime.timedelta(seconds=60 * threshold_min):
-                return key
-        return '{:08x}'.format(random.randint(0, 0xffffffff))
+                return bn
+        return '{}-{:08x}'.format(now.strftime(TIMESTAMP_FORMAT),
+                                  random.randint(0, 0xffffffff))
 
     def setup(self):
         # set up a folder to store data for a subject.
