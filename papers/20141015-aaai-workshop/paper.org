@@ -1,5 +1,5 @@
 #+TITLE: Trajectory classification using sparse kinematic codes
-#+AUTHORS: Leif Johnson \and Fernanda Herreira \and Dana Ballard \\ The University of Texas at Austin \\ \tt {leif,dana,fherreira}@cs.utexas.edu
+#+AUTHOR: Leif Johnson \and Fernanda Herreira \and Dana Ballard \\ The University of Texas at Austin \\ \tt {leif,dana,fherreira}@cs.utexas.edu
 #+DATE: 15 January 2015
 #+OPTIONS: toc:nil
 #+LaTeX_CLASS: article
@@ -16,7 +16,7 @@
 
 * Motivation
 
-
+\cite{latash2002motor}
 
 * Goal-Directed Movement Data
 
