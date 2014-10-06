@@ -14,15 +14,8 @@ import plots
 def main(root, pattern='*5/*block00/*circuit00.csv.gz', markers='r-fing-index l-fing-index r-heel r-knee'):
     with plots.space() as ax:
         for t in source.Experiment(root).trials_matching(pattern):
-            for i, marker in enumerate(markers.split()):
-                df = t.trajectory(marker)
-                ax.plot(np.asarray(df.x),
-                        np.asarray(df.z),
-                        zs=np.asarray(df.y),
-                        color=lmj.plot.COLOR11[i],
-                        alpha=0.7)
-            continue
-            t.realign(order=3)
+            t.realign()
+            t.interpolate()
             for i, marker in enumerate(markers.split()):
                 df = t.trajectory(marker)
                 ax.plot(np.asarray(df.x),
