@@ -246,11 +246,14 @@ class Trial(Movement, TimedMixin, TreeMixin):
         naive but seems to get the job done for the types of mocap data that we
         gathered in the cube experiment.
         '''
-        markers = [c for c in self.df.columns if c[:2].isdigit() and c[-1] in 'xyz' and self.df[c].count()]
+        markers = [
+            c for c in self.df.columns
+            if c[:2].isdigit() and c[-1] in 'xyz' and self.df[c].count()]
 
         means = [self.df[c].mean() for c in markers]
         stds = [self.df[c].std() for c in markers]
-        zscores = [(self.df[c] - mu) / (std + 1e-10) for c, mu, std in zip(markers, means, stds)]
+        zscores = [(self.df[c] - mu) / (std + 1e-10)
+                   for c, mu, std in zip(markers, means, stds)]
 
         df = pd.DataFrame(zscores).T
 
@@ -271,7 +274,8 @@ class Trial(Movement, TimedMixin, TreeMixin):
             u, s, v = np.linalg.svd(y, full_matrices=False)
             s = np.clip(s - threshold, 0, np.inf)
             rmse = np.sqrt((err * err).mean().mean())
-            logging.info('SVT: error %f using %d singular values', rmse, len(s.nonzero()[0]))
+            logging.info('SVT: error %f using %d singular values',
+                         rmse, len(s.nonzero()[0]))
             x = cdf(np.dot(u, np.dot(np.diag(s), v)))
 
         for c, mu, std in zip(markers, means, stds):
@@ -318,12 +322,12 @@ class Trial(Movement, TimedMixin, TreeMixin):
             a higher value to fit the spline closer to the data, with the
             possible cost of over-fitting. Defaults to 1.
         '''
-        MARKERS = 9
-        values = [self.df[c] for c in self.df.columns[:MARKERS]]
-        for column in self.df.columns[MARKERS:]:
+        start = min(i for i, c in enumerate(self.df.columns) if c.endswith('-c')) - 3
+        values = []
+        for i, column in enumerate(self.df.columns):
             series = self.df[column]
 
-            if column.endswith('-c') or series.count() <= order:
+            if i < start or column.endswith('-c') or series.count() <= order:
                 values.append(series)
                 continue
 
