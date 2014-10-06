@@ -130,6 +130,18 @@ class Block(TimedMixin, TreeMixin):
 
 
 class Movement:
+    '''Base class for representing and manipulating movement data.
+
+    One movement basically consists of a bunch of motion capture frames sampled
+    more or less regularly over a contiguous time interval. Movement data (as in
+    the cube experiment) can be augmented with various additional information
+    per frame, like the goal of the movement etc.
+
+    This base class contains helper methods for extracting specific subsets of
+    information from a movement: trajectories (over time) for a single marker,
+    sequences of consecutive frames for some interesting event, etc.
+    '''
+
     def __init__(self, df=None):
         self.df = df
 
