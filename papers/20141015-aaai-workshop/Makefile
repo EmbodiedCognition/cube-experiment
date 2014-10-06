@@ -21,13 +21,12 @@ clean:
 	rm -f *.snm
 	rm -f *.toc
 	rm -f *.vrb
+	rm -f AuthorKit.zip
+	rm -f aaai.bst
+	rm -f aaai.sty
 
 AuthorKit.zip:
-	curl -O http://www.aaai.org/Publications/Templates/AuthorKit.zip
-	unzip AuthorKit.zip
+	curl -O http://www.aaai.org/Publications/Templates/$@
 
-aaai.bst: AuthorKit.zip
-	ln -s AuthorKit/aaai.bst .
-
-aaai.sty: AuthorKit.zip
-	ln -s AuthorKit/aaai.sty .
+aaai.%: AuthorKit.zip
+	unzip -p $< AuthorKit/$@ > $@
