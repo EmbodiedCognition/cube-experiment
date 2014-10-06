@@ -1,0 +1,38 @@
+#+TITLE: Trajectory classification using sparse kinematic codes
+#+AUTHORS: Leif Johnson \and Fernanda Herreira \and Dana Ballard \\ The University of Texas at Austin \\ \tt {leif,dana,fherreira}@cs.utexas.edu
+#+DATE: 15 January 2015
+#+OPTIONS: toc:nil
+#+LaTeX_CLASS: article
+#+LaTeX_HEADER: \usepackage{aaai}
+#+LaTeX_HEADER: \usepackage{amsmath}
+#+LaTeX_HEADER: \setlength{\pdfpagewidth}{8.5in}
+#+LaTeX_HEADER: \setlength{\pdfpageheight}{11in}
+#+LaTeX_HEADER: \DeclareMathOperator*{\argmin}{arg\,min}
+#+LaTeX_HEADER: \DeclareMathOperator*{\argmax}{arg\,max}
+#+LaTeX_HEADER: \def\dblbackslash{\\}
+
+#+BEGIN_abstract
+#+END_abstract
+
+* Motivation
+
+
+
+* Goal-Directed Movement Data
+
+
+
+* Computational Models
+
+
+
+* Modeling Results
+
+
+
+* Discussion
+
+
+
+\bibliographystyle{aaai}
+\bibliography{references}
