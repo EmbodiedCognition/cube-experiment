@@ -1,5 +1,5 @@
 %.tex: %.org
-	emacsclient -n --eval "(progn (find-file \"$<\") (org-beamer-export-to-latex) (switch-to-buffer \"*terminal*\"))"
+	emacsclient -n --eval "(progn (find-file \"$<\") (org-latex-export-to-latex) (switch-to-buffer \"*terminal*\"))"
 
 %.pdf: %.tex aaai.bst aaai.sty
 	latexmk -pdf $<
