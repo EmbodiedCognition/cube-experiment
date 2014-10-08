@@ -198,8 +198,11 @@ class Block(vrlab.Block):
         self.experiment.prox.clearTargets()
 
     def generate_trials(self):
-        for i, ts in enumerate(targets.CIRCUITS[:self.num_trials]):
-            yield self.trial_factory(self, [targets.NUMBERED[t] for t in ts], circuit=i)
+        idx = list(range(len(targets.CIRCUITS)))
+        #random.shuffle(idx)
+        for i in idx[:self.num_trials]:
+            targets = [targets.NUMBERED[t] for t in targets.CIRCUITS[i]]
+            yield self.trial_factory(self, targets, circuit=i)
 
 
 class Experiment(vrlab.Experiment):
