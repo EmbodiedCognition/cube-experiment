@@ -1,5 +1,5 @@
 #+TITLE: Trajectory classification using sparse kinematic codes
-#+AUTHOR: Leif Johnson \and Fernanda Herrera \and Dana Ballard \\ The University of Texas at Austin \\ \tt {leif,fherrera,dana}@cs.utexas.edu
+#+AUTHOR: Leif Johnson \and Fernanda Herrera \and Dana H. Ballard \\ The University of Texas at Austin \\ \tt {leif,fherrera,dana}@cs.utexas.edu
 #+DATE: 15 January 2015
 #+OPTIONS: toc:nil
 #+LaTeX_CLASS: article
@@ -12,7 +12,6 @@
 
 #+BEGIN_abstract
 This is an abstract!
-
 #+END_abstract
 
 * Motivation
@@ -24,13 +23,9 @@ uncontrolled manifold hypothesis \cite{latash2002motor}
 * Goal-Directed Movement Data
 
 The experiment was designed to collect realistic human movement information from
-subjects while they completed an ongoing, goal-directed task. During the task,
-subjects wore a motion-capture suit equipped with 46 active-pulse LED markers;
-each marker broadcasts a unique ID so the capture system does not confuse
-occluded or overlapping markers. The system \footnote{http://phasespace.com}
-
-The experiment was implemented using WorldViz Vizard 4
-software.\footnote{http://worldviz.com/products/vizard}
+subjects while they completed an ongoing, goal-directed task. At a high level,
+the task involves executing full-body movements including walking and pointing
+to make contact with a series of targets in three-dimensional space.
 
 Targets for the task were 12 cubes made of paper. Each cube measured 10cm on a
 side and was labeled on every side with its target number, 0 through 11. Eight
@@ -38,6 +33,19 @@ target cubes were suspended from the ceiling in the motion-capture space, and
 the remaining four were placed on the floor. Cube locations were calibrated with
 the motion-capture system using a calibration procedure before each subject
 completed the experiment.
+
+The experiment was implemented using WorldViz Vizard 4
+software.\footnote{http://worldviz.com/products/vizard} Positions of the 46 LED
+markers were recorded by the experiment software at intervals of approximately
+10ms.
+
+*** Motion Capture
+
+During the task, movements made by the subjects were recorded by a
+Phasespace\footnote{http://phasespace.com} motion-capture system. Specifically,
+each subject wore a motion-capture suit equipped with 46 active-pulse LED
+markers. Each marker broadcasts a unique ID so the capture system does not
+confuse occluded or overlapping markers.
 
 Python code for the experiment and for subsequent data analysis, as well as the
 source material for this paper, are all freely available
