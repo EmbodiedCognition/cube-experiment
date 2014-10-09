@@ -92,21 +92,20 @@ class Trial(vrlab.Trial):
             handle.write(msg.format(*args, **kwargs))
 
         # write csv file header
-        w('time,')
-        w('source,source-x,source-y,source-z,')
-        w('target,target-x,target-y,target-z,')
-        w('effector,effector-x,effector-y,effector-z,effector-c')
+        w('time')
+        w(',source,source-x,source-y,source-z')
+        w(',target,target-x,target-y,target-z')
+        w(',effector')
         for label in suit.MARKER_LABELS:
-            w(',{0}-x,{0}-y,{0}-z,{0}-c', label)
+            w(',marker-{0}-x,marker-{0}-y,marker-{0}-z,marker-{0}-c', label)
         w('\n')
 
         # write data frames
-        eff = self.block.effector
         for elapsed, prev, curr, frame in self.records:
             w('{}', elapsed)
             w(',{t.index},{t.center[0]},{t.center[1]},{t.center[2]}', t=prev)
             w(',{t.index},{t.center[0]},{t.center[1]},{t.center[2]}', t=curr)
-            w(',{i},{m.pos[0]},{m.pos[1]},{m.pos[2]},{m.cond}', i=eff, m=frame[eff])
+            w(',{eff}', eff=suit.MARKER_LABELS[self.block.effector])
             for i in range(len(frame)):
                 w(',{m.pos[0]},{m.pos[1]},{m.pos[2]},{m.cond}', m=frame[i])
             w('\n')
@@ -175,10 +174,12 @@ class Block(vrlab.Block):
 
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
-            experiment.output, '{}-block{:02d}'.format(stamp, self.index))
+            experiment.output, '{}-effector-{:02d}-{}'.format(
+                stamp, self.effector, suit.MARKER_LABELS[self.effector]))
 
         logging.info('NEW BLOCK -- effector %s, trials %s',
-                     self.effector, self.trial_factory.__name__)
+                     suit.MARKER_LABELS[self.effector],
+                     self.trial_factory.__name__)
 
     @property
     def index(self):
@@ -255,8 +256,6 @@ class Experiment(vrlab.Experiment):
         viz.cam.setHandler(None)
 
     def generate_blocks(self):
-        #yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trial_factory=ControlTrial, num_trials=10)
-        #yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trial_factory=HubAndSpokeTrial, num_trials=5)
         yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trial_factory=CircuitTrial, num_trials=6)
 
 

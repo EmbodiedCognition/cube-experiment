@@ -2,56 +2,56 @@
 
 # labels for markers reported by the phasespace setup.
 MARKER_LABELS = [
-    '00-r-head-back',
-    '01-r-head-front',
-    '02-l-head-front',
-    '03-l-head-back',
-    '04-r-head-mid',
-    '05-l-head-mid',
-    '06-r-collar',
-    '07-r-shoulder',
-    '08-r-elbow',
-    '09-r-wrist',
-    '10-r-fing-pinky',
-    '11-r-fing-ring',
-    '12-r-fing-middle',
-    '13-r-fing-index',
-    '14-r-mc-outer',
-    '15-r-mc-inner',
-    '16-r-thumb-base',
-    '17-r-thumb-tip',
-    '18-l-collar',
-    '19-l-shoulder',
-    '20-l-elbow',
-    '21-l-wrist',
-    '22-l-fing-pinky',
-    '23-l-fing-ring',
-    '24-l-fing-middle',
-    '25-l-fing-index',
-    '26-l-mc-outer',
-    '27-l-mc-inner',
-    '28-l-thumb-base',
-    '29-l-thumb-tip',
-    '30-abdomen',
-    '31-sternum',
-    '32-t3',
-    '33-t9',
-    '34-l-ilium',
-    '35-r-ilium',
-    '36-r-hip',
-    '37-r-knee',
-    '38-r-shin',
-    '39-r-ankle',
-    '40-r-heel',
-    '41-r-mt-outer',
-    '42-r-mt-inner',
-    '43-l-hip',
-    '44-l-knee',
-    '45-l-shin',
-    '46-l-ankle',
-    '47-l-heel',
-    '48-l-mt-outer',
-    '49-l-mt-inner',
+    'r-head-back',   # 00
+    'r-head-front',
+    'l-head-front',
+    'l-head-back',
+    'r-head-mid',
+    'l-head-mid',    # 05
+    'r-collar',
+    'r-shoulder',
+    'r-elbow',
+    'r-wrist',
+    'r-fing-pinky',  # 10
+    'r-fing-ring',
+    'r-fing-middle',
+    'r-fing-index',
+    'r-mc-outer',
+    'r-mc-inner',    # 15
+    'r-thumb-base',
+    'r-thumb-tip',
+    'l-collar',
+    'l-shoulder',
+    'l-elbow',       # 20
+    'l-wrist',
+    'l-fing-pinky',
+    'l-fing-ring',
+    'l-fing-middle',
+    'l-fing-index',  # 25
+    'l-mc-outer',
+    'l-mc-inner',
+    'l-thumb-base',
+    'l-thumb-tip',
+    'abdomen',       # 30
+    'sternum',
+    't3',
+    't9',
+    'l-ilium',
+    'r-ilium',       # 35
+    'r-hip',
+    'r-knee',
+    'r-shin',
+    'r-ankle',
+    'r-heel',        # 40
+    'r-mt-outer',
+    'r-mt-inner',
+    'l-hip',
+    'l-knee',
+    'l-shin',        # 45
+    'l-ankle',
+    'l-heel',
+    'l-mt-outer',
+    'l-mt-inner',
     ]
 
 
@@ -59,5 +59,5 @@ MARKER_LABELS = [
 class MARKERS:
     pass
 
-for l in MARKER_LABELS:
-    setattr(MARKERS, l[3:].replace('-', '_').upper(), int(l[:2]))
+for i, l in enumerate(MARKER_LABELS):
+    setattr(MARKERS, l.replace('-', '_').upper(), i)
