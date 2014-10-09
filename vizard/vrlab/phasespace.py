@@ -259,7 +259,7 @@ class Phasespace(viz.EventClass):
 
     def __init__(self,
                  server_name,
-                 freq=100.,
+                 freq=OWL.OWL_FREQUENCY_HIGHEST,
                  scale=(0.001, 0.001, 0.001),
                  offset=(0, 0, 0),
                  postprocess=False,
@@ -310,14 +310,15 @@ class Phasespace(viz.EventClass):
             wait = 1. / self.frame_rate - elapsed
             while wait < 0:
                 wait += 1. / self.frame_rate
-            #time.sleep(wait)
+            time.sleep(wait)
 
     def start_timer(self):
         self.callback(viz.TIMER_EVENT, self.update_timer)
         self.starttimer(Phasespace.UPDATE_TIMER, 0, viz.FOREVER)
 
     def update_timer(self, timer_id):
-        if timer_id == Phasespace.UPDATE_TIMER:
+        elapsed = viz.tick() - self._updated
+        if timer_id == Phasespace.UPDATE_TIMER and elapsed > 1. / self.frame_rate:
             self.update()
 
     def update(self):
