@@ -281,26 +281,24 @@ class Trial(Movement, TimedMixin, TreeMixin):
         for c, mu, std in zip(markers, means, stds):
             self.df[c] = std * x[c] + mu
 
-    def realign(self, frame_rate=100.):
-        '''Realign raw marker data to regular time intervals.
+    def normalize(self, frame_rate=100., order=1, dropout_decay=0.1, accuracy=1):
+        '''Use spline interpolation to resample data on a regular time grid.
+
+        The existing `df` attribute of this Trial will be replaced.
+
+        This method accomplishes two forms of data cleanup at once: filling in
+        dropped markers, and aligning the dataset to regularly spaced time
+        intervals. We need to accomplish both of these normalization techniques
+        together because the alignment process requires fitting a model to the
+        data, and the filling-in process similarly requires a model. In
+        addition, when performing "pure" alignment, it's hard to say where the
+        dropouts occurred after realignment.
 
         Parameters
         ----------
         frame_rate : float, optional
             Frame rate for desired time offsets. Defaults to 100Hz.
-        '''
-        dt = 1 / frame_rate
-        start = self.df.index[0]
-        posts = np.arange(dt + start - start % dt, self.df.index[-1], dt)
-        self.df.reindex(posts, method='ffill', inplace=True)
 
-    def interpolate(self, order=1, dropout_decay=0.1, accuracy=1):
-        '''Interpolate missing marker data using splines of of the given order.
-
-        The existing `df` attribute of this Trial will be replaced.
-
-        Parameters
-        ----------
         order : int, optional
             Order of desired interpolation. Defaults to 3 (cubic
             interpolation). Set to 0 for no interpolation.
@@ -322,21 +320,24 @@ class Trial(Movement, TimedMixin, TreeMixin):
             a higher value to fit the spline closer to the data, with the
             possible cost of over-fitting. Defaults to 1.
         '''
+        # create "fenceposts" for realigning data to regular time intervals.
+        dt = 1 / frame_rate
+        t0 = self.df.index[0]
+        posts = pd.Index(np.arange(dt + t0 - t0 % dt, self.df.index[-1], dt))
+
         start = min(i for i, c in enumerate(self.df.columns) if c.endswith('-c')) - 3
         values = []
         for i, column in enumerate(self.df.columns):
             series = self.df[column]
 
             if i < start or column.endswith('-c') or series.count() <= order:
-                values.append(series)
+                values.append(series.reindex(posts, method='ffill', limit=1))
+                logging.info('%s: reindexed series %d -> %d',
+                             column, series.count(), values[-1].count())
                 continue
 
-            # interpolate observed values linearly.
+            # to start, interpolate observed values linearly.
             linear = series.interpolate().fillna(method='ffill').fillna(method='bfill')
-
-            if order == 1:
-                values.append(linear)
-                continue
 
             # compute the distance (in frames) to the nearest non-dropout frame.
             drops = series.isnull()
@@ -364,7 +365,11 @@ class Trial(Movement, TimedMixin, TreeMixin):
             spl = scipy.interpolate.UnivariateSpline(
                 linear.index, linear.values, w=accuracy / std, k=order)
 
-            values.append(spl(self.df.index))
+            # evaluate spline at predefined time intervals.
+            values.append(spl(posts))
+            err = values[-1] - series.reindex(posts, method='ffill')
+            logging.info('%s: interpolated with rmse %.3f',
+                         column, np.sqrt((err ** 2).mean()))
 
             '''
             import lmj.plot
@@ -373,7 +378,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
             ax.plot(linear.index, linear, '+', alpha=0.3, color=lmj.plot.COLOR11[1])
             ax.fill_between(linear.index, linear - std, linear + std, alpha=0.2, lw=0, color=lmj.plot.COLOR11[1])
             ax.plot(spl.get_knots(), spl(spl.get_knots()), 'x', lw=0, mew=2, alpha=0.7, color=lmj.plot.COLOR11[2])
-            ax.plot(self.df.index, vals, '-', lw=2, alpha=0.7, color=lmj.plot.COLOR11[2])
+            ax.plot(posts, vals, '-', lw=2, alpha=0.7, color=lmj.plot.COLOR11[2])
             ax.set_xlim(self.df.index[0], self.df.index[-1])
             lmj.plot.show()
             '''
