@@ -368,8 +368,11 @@ class Trial(Movement, TimedMixin, TreeMixin):
             # evaluate spline at predefined time intervals.
             values.append(spl(posts))
             err = values[-1] - series.reindex(posts, method='ffill')
-            logging.info('%s: interpolated with rmse %.3f',
-                         column, np.sqrt((err ** 2).mean()))
+            logging.info('%s: interpolated %d points using %d knots: rmse %.3f',
+                         column,
+                         series.count(),
+                         len(spl.get_knots()),
+                         np.sqrt((err ** 2).mean()))
 
             '''
             import lmj.plot
