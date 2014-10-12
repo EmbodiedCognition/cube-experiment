@@ -34,6 +34,12 @@ class Trial(vrlab.Trial):
         self.home = targets[0]
         self.targets = targets[1:]
 
+        for k, v in kwargs.iteritems():
+            if hasattr(self, k):
+                logging.critical('attempted setting Trial.%s = %s!', k, v)
+            else:
+                setattr(self, k, v)
+
         self.current_target = self.previous_target = self.home
 
         self.suit = block.experiment.suit
@@ -60,7 +66,8 @@ class Trial(vrlab.Trial):
         yield target.signal.wait()
 
     def target_sequence(self):
-        raise NotImplementedError
+        for target in self.targets:
+            yield target
 
     def setup(self):
         yield self.wait_for_touch(self.home)
@@ -78,7 +85,7 @@ class Trial(vrlab.Trial):
         self.write_records()
 
     def trial_description(self):
-        return '{}{:02d}'.format(self.TRIAL_TYPE, self.index)
+        return 'circuit{:02d}'.format(self.circuit_num)
 
     def write_records(self):
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
@@ -116,41 +123,6 @@ class Trial(vrlab.Trial):
                      len(self.records), os.path.basename(output))
 
 
-class HubAndSpokeTrial(Trial):
-    TRIAL_TYPE = 'hubspoke'
-
-    def target_sequence(self):
-        for target in self.targets:
-            yield target
-            yield self.home
-
-
-class CircuitTrial(Trial):
-    TRIAL_TYPE = 'circuit'
-
-    def __init__(self, block, targets, circuit=0):
-        super(CircuitTrial, self).__init__(block, targets)
-
-        self.circuit_num = circuit
-
-    def trial_description(self):
-        return '{}{:02d}'.format(self.TRIAL_TYPE, self.circuit_num)
-
-    def target_sequence(self):
-        for target in self.targets:
-            yield target
-
-
-class ControlTrial(HubAndSpokeTrial):
-    TRIAL_TYPE = 'control'
-    TARGETS = [targets.NUMBERED[i] for i in (7, 8, 3)]
-
-    def __init__(self, block, targets, home=targets.NUMBERED[6]):
-        random.shuffle(self.TARGETS)
-        assert home.index in (6, 10, 9)
-        super(ControlTrial, self).__init__(block, [home] + self.TARGETS)
-
-
 class Block(vrlab.Block):
     '''Manage a block of trials in the tracing experiment.
 
@@ -162,24 +134,20 @@ class Block(vrlab.Block):
     def __init__(self,
                  experiment,
                  effector,
-                 trial_factory,
-                 num_trials,
+                 trials,
                  ):
         super(Block, self).__init__()
 
         self.experiment = experiment
         self.effector = effector
-        self.trial_factory = trial_factory
-        self.num_trials = num_trials
+        self.trials = trials
 
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
-            experiment.output, '{}-effector-{:02d}-{}'.format(
+            experiment.output, '{}-effector{:02d}{}'.format(
                 stamp, self.effector, suit.MARKER_LABELS[self.effector]))
 
-        logging.info('NEW BLOCK -- effector %s, trials %s',
-                     suit.MARKER_LABELS[self.effector],
-                     self.trial_factory.__name__)
+        logging.info('NEW BLOCK -- effector %s', suit.MARKER_LABELS[self.effector])
 
     @property
     def index(self):
@@ -199,11 +167,11 @@ class Block(vrlab.Block):
         self.experiment.prox.clearTargets()
 
     def generate_trials(self):
-        idx = list(range(len(targets.CIRCUITS)))
-        #random.shuffle(idx)
-        for i in idx[:self.num_trials]:
-            targets = [targets.NUMBERED[t] for t in targets.CIRCUITS[i]]
-            yield self.trial_factory(self, targets, circuit=i)
+        for i in self.trials:
+            yield Trial(
+                self,
+                [targets.NUMBERED[t] for t in targets.CIRCUITS[i]],
+                circuit_num=i)
 
 
 class Experiment(vrlab.Experiment):
@@ -256,7 +224,9 @@ class Experiment(vrlab.Experiment):
         viz.cam.setHandler(None)
 
     def generate_blocks(self):
-        yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trial_factory=CircuitTrial, num_trials=6)
+        idx = list(range(len(targets.CIRCUITS)))
+        #random.shuffle(idx)
+        yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trials=idx[:6])
 
 
 if __name__ == '__main__':
