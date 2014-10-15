@@ -281,6 +281,21 @@ class Trial(Movement, TimedMixin, TreeMixin):
         for c, mu, std in zip(markers, means, stds):
             self.df[c] = std * x[c] + mu
 
+    def reindex(self, frame_rate=100.):
+        '''Reindex the data frame to a regularly spaced time grid.
+
+        The existing `df` attribute of this Trial will be replaced.
+
+        Parameters
+        ----------
+        frame_rate : float, optional
+            Frame rate for desired time offsets. Defaults to 100Hz.
+        '''
+        dt = 1 / frame_rate
+        t0 = self.df.index[0]
+        posts = pd.Index(np.arange(dt + t0 - t0 % dt, self.df.index[-1], dt))
+        self.df = self.df.reindex(posts, method='ffill', limit=1)
+
     def normalize(self, frame_rate=100., order=1, dropout_decay=0.1, accuracy=1):
         '''Use spline interpolation to resample data on a regular time grid.
 
