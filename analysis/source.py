@@ -237,7 +237,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
                 self._replace_dropouts(column[:-2])
         logging.info('%s: loaded trial %s', self.basename, self.df.shape)
 
-    def svt(self, threshold=700, preserve=0.1):
+    def svt(self, threshold=1000, min_rmse=0.01, consec_frames=5):
         '''Complete missing marker data using singular value thresholding.
 
         Singular value thresholding is described in Cai, Candes, & Shen (2010),
@@ -245,6 +245,19 @@ class Trial(Movement, TimedMixin, TreeMixin):
         http://arxiv.org/pdf/0810.3286.pdf). The implementation here is rather
         naive but seems to get the job done for the types of mocap data that we
         gathered in the cube experiment.
+
+        Parameters
+        ----------
+        threshold : int, optional
+            Threshold for singular values. Defaults to 1000.
+
+        min_rmse : float, optional
+            Halt the reconstruction process when reconstructed data is below
+            this RMS error compared with measured data. Defaults to 0.01.
+
+        consec_frames : int, optional
+            Compute the SVT using trajectories of this many consecutive frames.
+            Defaults to 5.
         '''
         markers = [
             c for c in self.df.columns
@@ -255,20 +268,33 @@ class Trial(Movement, TimedMixin, TreeMixin):
         zscores = [(self.df[c] - mu) / (std + 1e-10)
                    for c, mu, std in zip(markers, means, stds)]
 
-        df = pd.DataFrame(zscores).T
-
-        n = df.shape[0] * df.shape[1]
-        logging.info('SVT: filling data %s, missing %d of %d values',
-                     df.shape, n - df.count().sum(), n)
+        zdf = pd.DataFrame(zscores).T
+        num_frames, num_markers = zdf.shape
+        num_entries = num_frames * num_markers
 
         # learning rate heuristic, see section 5.1.2 for details.
-        learning_rate = 1.2 * df.shape[0] * df.shape[1] / df.count().sum()
+        learning_rate = 1.2 * num_entries / zdf.count().sum()
 
-        def cdf(z): return pd.DataFrame(z, index=df.index, columns=df.columns)
+        # create dataframe of trajectories by reshaping existing data.
+        arr = np.asarray(zdf)
+        extra = num_frames % consec_frames
+        if extra > 0:
+            rows = np.empty((consec_frames - extra, num_markers), float)
+            rows[:] = float('nan')
+            arr = np.vstack([arr, rows])
 
-        x = y = cdf(np.zeros_like(df))
-        rmse = preserve + 1
-        while rmse > preserve:
+        df = pd.DataFrame(arr.reshape((len(arr) // consec_frames,
+                                       num_markers * consec_frames)))
+
+        logging.info('SVT: filling %d x %d, reshaped as %d x %d',
+                     num_frames, num_markers, df.shape[0], df.shape[1])
+        logging.info('SVT: missing %d of %d values',
+                     num_entries - df.count().sum(),
+                     num_entries)
+
+        x = y = pd.DataFrame(np.zeros_like(df))
+        rmse = min_rmse + 1
+        while rmse > min_rmse:
             err = df - x
             y += learning_rate * err.fillna(0)
             u, s, v = np.linalg.svd(y, full_matrices=False)
@@ -276,10 +302,12 @@ class Trial(Movement, TimedMixin, TreeMixin):
             rmse = np.sqrt((err * err).mean().mean())
             logging.info('SVT: error %f using %d singular values',
                          rmse, len(s.nonzero()[0]))
-            x = cdf(np.dot(u, np.dot(np.diag(s), v)))
+            x = pd.DataFrame(np.dot(u, np.dot(np.diag(s), v)))
 
+        x = np.asarray(x).reshape((-1, num_markers))[:num_frames]
+        df = pd.DataFrame(x, index=zdf.index, columns=zdf.columns)
         for c, mu, std in zip(markers, means, stds):
-            self.df[c] = std * x[c] + mu
+            self.df[c] = std * df[c] + mu
 
     def reindex(self, frame_rate=100.):
         '''Reindex the data frame to a regularly spaced time grid.
