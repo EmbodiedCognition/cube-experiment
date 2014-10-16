@@ -319,9 +319,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
         frame_rate : float, optional
             Frame rate for desired time offsets. Defaults to 100Hz.
         '''
-        dt = 1 / frame_rate
-        t0 = self.df.index[0]
-        posts = pd.Index(np.arange(dt + t0 - t0 % dt, self.df.index[-1], dt))
+        posts = np.arange(0, self.df.index[-1], 1. / frame_rate)
         self.df = self.df.reindex(posts, method='ffill', limit=1)
 
     def normalize(self, frame_rate=100., order=1, dropout_decay=0.1, accuracy=1):
