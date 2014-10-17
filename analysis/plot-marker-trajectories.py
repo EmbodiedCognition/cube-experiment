@@ -12,15 +12,23 @@ import plots
     markers=('plot traces of these markers', 'option'),
     spline=('interpolate data with a spline of this order', 'option', None, int),
     accuracy=('fit spline with this accuracy', 'option', None, float),
+    svt_threshold=('trajectory-SVT threshold', 'option', None, float),
+    svt_frames=('number of trajectory-SVT frames', 'option', None, int),
 )
 def main(root,
          pattern='*/*block00/*circuit00.csv.gz',
          markers='r-fing-index l-fing-index r-heel r-knee',
-         spline=1,
-         accuracy=1):
+         spline=None,
+         accuracy=0.01,
+         svt_threshold=1000,
+         svt_frames=5):
     with plots.space() as ax:
         for t in source.Experiment(root).trials_matching(pattern):
-            t.normalize(order=spline, accuracy=accuracy)
+            if spline:
+                t.normalize(order=spline, accuracy=accuracy)
+            else:
+                t.reindex()
+                t.svt(svt_threshold, accuracy, svt_frames)
             for i, marker in enumerate(markers.split()):
                 df = t.trajectory(marker)
                 ax.plot(np.asarray(df.x),
