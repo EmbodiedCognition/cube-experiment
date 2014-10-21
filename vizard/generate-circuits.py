@@ -190,8 +190,11 @@ def show(c):
     plt.show()
 
 
-def main(n):
-    show(generate_circuits(int(n)))
+def main(n=None):
+    if n:
+        return show(generate_circuits(int(n)))
+    for t in GOOD_EXAMPLES:
+        show(t)
 
 
 if __name__ == '__main__':
