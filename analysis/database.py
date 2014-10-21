@@ -279,10 +279,9 @@ class Movement:
             Each row of the data in our movement will be recentered to the mean
             position of the given markers.
         '''
-        columns = ['{}-{}'.format(m, a) for m in markers for a in 'xyz']
-        cx = self.df[m + '-x' for m in markers].mean(axis=1)
-        cy = self.df[m + '-y' for m in markers].mean(axis=1)
-        cz = self.df[m + '-z' for m in markers].mean(axis=1)
+        cx = self.df[['{}-x'.format(m) for m in markers]].mean(axis=1)
+        cy = self.df[['{}-y'.format(m) for m in markers]].mean(axis=1)
+        cz = self.df[['{}-z'.format(m) for m in markers]].mean(axis=1)
         for c in self.df.columns:
             if c.endswith('-x'): self.df[c] -= cx
             if c.endswith('-y'): self.df[c] -= cy
