@@ -266,6 +266,31 @@ class Movement:
         for c, mu, std in zip(markers, means, stds):
             self.df[c] = std * df[c] + mu
 
+    def recenter(self, markers):
+        '''Recenter all position data relative to the given set of markers.
+
+        This method adds three new columns to the data frame called
+        center-{x,y,z}.
+
+        Parameters
+        ----------
+        markers : sequence of str
+            A set of marker names, relative to which we will recenter our data.
+            Each row of the data in our movement will be recentered to the mean
+            position of the given markers.
+        '''
+        columns = ['{}-{}'.format(m, a) for m in markers for a in 'xyz']
+        cx = self.df[m + '-x' for m in markers].mean(axis=1)
+        cy = self.df[m + '-y' for m in markers].mean(axis=1)
+        cz = self.df[m + '-z' for m in markers].mean(axis=1)
+        for c in self.df.columns:
+            if c.endswith('-x'): self.df[c] -= cx
+            if c.endswith('-y'): self.df[c] -= cy
+            if c.endswith('-z'): self.df[c] -= cz
+        self.df['center-x'] = cx
+        self.df['center-y'] = cy
+        self.df['center-z'] = cz
+
     def reindex(self, frame_rate=100.):
         '''Reindex the data frame to a regularly spaced time grid.
 
