@@ -2,7 +2,7 @@ import climate
 import lmj.plot
 import numpy as np
 
-import source
+import database
 import plots
 
 
@@ -23,7 +23,7 @@ def main(root,
          svt_threshold=1000,
          svt_frames=5):
     with plots.space() as ax:
-        for t in source.Experiment(root).trials_matching(pattern):
+        for t in database.Experiment(root).trials_matching(pattern):
             if spline:
                 t.normalize(order=spline, accuracy=accuracy)
             else:
