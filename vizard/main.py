@@ -27,18 +27,14 @@ BASE_PATH = 'C:\\Documents and Settings\\vrlab\\Desktop\\target-data'
 class Trial(vrlab.Trial):
     '''Manage a single trial of the target-reaching experiment.'''
 
-    def __init__(self, block, targets, **kwargs):
+    def __init__(self, block, targets):
         super(Trial, self).__init__()
 
         self.block = block
         self.home = targets[0]
         self.targets = targets[1:]
 
-        for k, v in kwargs.iteritems():
-            if hasattr(self, k):
-                logging.critical('attempted setting Trial.%s = %s!', k, v)
-            else:
-                setattr(self, k, v)
+        self.trial_label = ''.join('{:x}'.format(i) for i in targets)
 
         self.current_target = self.previous_target = self.home
 
@@ -84,14 +80,13 @@ class Trial(vrlab.Trial):
         vrlab.sounds.cowbell.play()
         self.write_records()
 
-    def trial_description(self):
-        return 'circuit{:02d}'.format(self.circuit_num)
-
     def write_records(self):
+        effector = suit.MARKER_LABELS[self.block.effector]
+
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         output = os.path.join(
             self.block.output,
-            '{}-{}.csv.gz'.format(stamp, self.trial_description()))
+            '{}-{}-{}.csv.gz'.format(stamp, self.trial_label, effector))
 
         # open file and define helper to write data
         handle = gzip.open(output, 'w')
@@ -99,20 +94,18 @@ class Trial(vrlab.Trial):
             handle.write(msg.format(*args, **kwargs))
 
         # write csv file header
-        w('time')
+        w('time,effector')
         w(',source,source-x,source-y,source-z')
         w(',target,target-x,target-y,target-z')
-        w(',effector')
         for label in suit.MARKER_LABELS:
             w(',marker-{0}-x,marker-{0}-y,marker-{0}-z,marker-{0}-c', label)
         w('\n')
 
         # write data frames
         for elapsed, prev, curr, frame in self.records:
-            w('{}', elapsed)
+            w('{},{}', elapsed, effector)
             w(',{t.index},{t.center[0]},{t.center[1]},{t.center[2]}', t=prev)
             w(',{t.index},{t.center[0]},{t.center[1]},{t.center[2]}', t=curr)
-            w(',{eff}', eff=suit.MARKER_LABELS[self.block.effector])
             for i in range(len(frame)):
                 w(',{m.pos[0]},{m.pos[1]},{m.pos[2]},{m.cond}', m=frame[i])
             w('\n')
@@ -168,10 +161,7 @@ class Block(vrlab.Block):
 
     def generate_trials(self):
         for i in self.trials:
-            yield Trial(
-                self,
-                [targets.NUMBERED[t] for t in targets.CIRCUITS[i]],
-                circuit_num=i)
+            yield Trial(self, [targets.NUMBERED[t] for t in targets.CIRCUITS[i]])
 
 
 class Experiment(vrlab.Experiment):
