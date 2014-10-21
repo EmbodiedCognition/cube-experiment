@@ -42,4 +42,4 @@ def ellipsoid(center, radius):
     array (3, lat, long) :
         An array of points on the surface of an axis-aligned ellipsoid.
     '''
-    return center + sphere * radius
+    return (center + sphere.T * radius).T
