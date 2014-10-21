@@ -291,6 +291,15 @@ class Movement:
         self.df['center-y'] = cy
         self.df['center-z'] = cz
 
+    def add_velocities(self):
+        '''Add columns to the data that reflect the instantaneous velocity.'''
+        dt = 2 * self.approx_frame_rate
+        for c in self.df.columns:
+            if c.startswith('marker-'):
+                ax = c[-1]
+                self.df['{}-v{}'.format(c[:-2], ax)] = pd.rolling_apply(
+                    self.df[c], 3, lambda x: (x[-1] - x[0]) / dt).shift(-1)
+
     def reindex(self, frame_rate=100.):
         '''Reindex the data frame to a regularly spaced time grid.
 
