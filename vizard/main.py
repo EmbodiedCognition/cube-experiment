@@ -86,7 +86,7 @@ class Trial(vrlab.Trial):
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         output = os.path.join(
             self.block.output,
-            '{}-{}-{}.csv.gz'.format(stamp, self.trial_label, effector))
+            '{}-trial{:02d}-{}.csv.gz'.format(stamp, self.index, self.trial_label))
 
         # open file and define helper to write data
         handle = gzip.open(output, 'w')
@@ -124,23 +124,38 @@ class Block(vrlab.Block):
     targets.
     '''
 
-    def __init__(self,
-                 experiment,
-                 effector,
-                 trials,
-                 ):
+    def __init__(self, experiment, effector):
         super(Block, self).__init__()
 
         self.experiment = experiment
         self.effector = effector
+
+        # start out by picking a random set of circuits for our trials.
+        idx = list(range(len(targets.CIRCUITS)))
+        random.shuffle(idx)
+        trials = [targets.CIRCUITS[i] for i in idx[:6]]
+
+        # if we are running a subsequent block for our subject, read the
+        # circuits from the existing trial files in the first block.
+        if os.path.isdir(experiment.output):
+            blocks = os.listdir(experiment.output)
+            if blocks:
+                block0 = os.path.join(experiment.output, blocks[0])
+                if os.path.isdir(block0):
+                    trials = []
+                    for trial in sorted(os.listdir(block0)):
+                        _, labels, _ = trial.split('-', 2)
+                        trials.append([int(x, 16) for x in labels])
+
         self.trials = trials
 
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
-            experiment.output, '{}-effector{:02d}{}'.format(
-                stamp, self.effector, suit.MARKER_LABELS[self.effector]))
+            experiment.output, '{}-block{:02d}-{}'.format(
+                stamp, self.index, suit.MARKER_LABELS[self.effector]))
 
-        logging.info('NEW BLOCK -- effector %s', suit.MARKER_LABELS[self.effector])
+        logging.info('NEW BLOCK -- effector %s trials %s',
+                     suit.MARKER_LABELS[self.effector], self.trials)
 
     @property
     def index(self):
@@ -160,8 +175,8 @@ class Block(vrlab.Block):
         self.experiment.prox.clearTargets()
 
     def generate_trials(self):
-        for i in self.trials:
-            yield Trial(self, [targets.NUMBERED[t] for t in targets.CIRCUITS[i]])
+        for ts in self.trials:
+            yield Trial(self, [targets.NUMBERED[t] for t in ts])
 
 
 class Experiment(vrlab.Experiment):
@@ -191,7 +206,7 @@ class Experiment(vrlab.Experiment):
 
     def setup(self):
         # set up a folder to store data for a subject.
-        dirname = self.find_output(threshold_min=7)
+        dirname = self.find_output(threshold_min=10)
         self.output = os.path.join(BASE_PATH, dirname)
         logging.info('storing output in %s', self.output)
 
@@ -214,9 +229,8 @@ class Experiment(vrlab.Experiment):
         viz.cam.setHandler(None)
 
     def generate_blocks(self):
-        idx = list(range(len(targets.CIRCUITS)))
-        #random.shuffle(idx)
-        yield Block(self, effector=suit.MARKERS.R_FING_INDEX, trials=idx[:6])
+        # just run one block at a time to prevent vizard from freezing.
+        yield Block(self, effector=suit.MARKERS.R_FING_INDEX)
 
 
 if __name__ == '__main__':
