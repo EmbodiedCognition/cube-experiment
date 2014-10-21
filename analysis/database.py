@@ -194,49 +194,6 @@ class Movement:
         good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
         self.df.ix[~good, marker + '-x':marker + '-z'] = float('nan')
 
-
-class Trial(Movement, TimedMixin, TreeMixin):
-    '''Encapsulates data from a single trial (from one block of one subject).
-
-    Parameters
-    ----------
-    block : `Block`
-        The block containing this trial.
-    basename : str
-        The CSV file containing the data for this trial.
-
-    Attributes
-    ----------
-    block : `Block`
-        The block containing this trial.
-    basename : str
-        The name of the CSV file containing the trial data.
-    df : pandas.DataFrame
-        Data for this trial.
-    '''
-
-    def __init__(self, block, basename):
-        super().__init__()
-        self.block = self.parent = block
-        self.basename = basename
-
-    def movement_from(self, source):
-        return Movement(self.df[self.df.source == source])
-
-    def movement_to(self, target):
-        return Movement(self.df[self.df.target == target])
-
-    @functools.lru_cache(maxsize=5)
-    def matches(self, pattern):
-        return fnmatch.fnmatch(self.root, pattern)
-
-    def load(self):
-        self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
-        for column in self.df.columns:
-            if column.endswith('-c'):
-                self._replace_dropouts(column[:-2])
-        logging.info('%s: loaded trial %s', self.basename, self.df.shape)
-
     def svt(self, threshold=1000, min_rmse=0.01, consec_frames=5):
         '''Complete missing marker data using singular value thresholding.
 
@@ -373,12 +330,18 @@ class Trial(Movement, TimedMixin, TreeMixin):
 
             if i < start or column.endswith('-c') or series.count() <= order:
                 values.append(series.reindex(posts, method='ffill', limit=1))
-                logging.info('%s: reindexed series %d -> %d',
-                             column, series.count(), values[-1].count())
+                logging.debug('%s: reindexed series %d -> %d',
+                              column, series.count(), values[-1].count())
                 continue
 
             # to start, interpolate observed values linearly.
             linear = series.interpolate().fillna(method='ffill').fillna(method='bfill')
+
+            if order == 1:
+                values.append(linear.reindex(posts, method='ffill'))
+                logging.debug('%s: interpolated series %d -> %d',
+                              column, series.count(), values[-1].count())
+                continue
 
             # compute the distance (in frames) to the nearest non-dropout frame.
             drops = series.isnull()
@@ -409,11 +372,11 @@ class Trial(Movement, TimedMixin, TreeMixin):
             # evaluate spline at predefined time intervals.
             values.append(spl(posts))
             err = values[-1] - series.reindex(posts, method='ffill')
-            logging.info('%s: interpolated %d points using %d knots: rmse %.3f',
-                         column,
-                         series.count(),
-                         len(spl.get_knots()),
-                         np.sqrt((err ** 2).mean()))
+            logging.debug('%s: interpolated %d points using %d knots: rmse %.3f',
+                          column,
+                          series.count(),
+                          len(spl.get_knots()),
+                          np.sqrt((err ** 2).mean()))
 
             '''
             import lmj.plot
@@ -428,3 +391,46 @@ class Trial(Movement, TimedMixin, TreeMixin):
             '''
 
         self.df = pd.DataFrame(dict(zip(self.df.columns, values)))
+
+
+class Trial(Movement, TimedMixin, TreeMixin):
+    '''Encapsulates data from a single trial (from one block of one subject).
+
+    Parameters
+    ----------
+    block : `Block`
+        The block containing this trial.
+    basename : str
+        The CSV file containing the data for this trial.
+
+    Attributes
+    ----------
+    block : `Block`
+        The block containing this trial.
+    basename : str
+        The name of the CSV file containing the trial data.
+    df : pandas.DataFrame
+        Data for this trial.
+    '''
+
+    def __init__(self, block, basename):
+        super().__init__()
+        self.block = self.parent = block
+        self.basename = basename
+
+    def movement_from(self, source):
+        return Movement(self.df[self.df.source == source])
+
+    def movement_to(self, target):
+        return Movement(self.df[self.df.target == target])
+
+    @functools.lru_cache(maxsize=5)
+    def matches(self, pattern):
+        return fnmatch.fnmatch(self.root, pattern)
+
+    def load(self):
+        self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
+        for column in self.df.columns:
+            if column.endswith('-c'):
+                self._replace_dropouts(column[:-2])
+        logging.info('%s: loaded trial %s', self.basename, self.df.shape)
