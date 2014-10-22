@@ -97,8 +97,9 @@ class Trial(vrlab.Trial):
         w('time,effector')
         w(',source,source-x,source-y,source-z')
         w(',target,target-x,target-y,target-z')
-        for label in suit.MARKER_LABELS:
-            w(',marker-{0}-x,marker-{0}-y,marker-{0}-z,marker-{0}-c', label)
+        headers = ''.join(',marker{i:02d}-{label}-' + ax for ax in 'xyzc')
+        for i, label in enumerate(suit.MARKER_LABELS):
+            w(headers, i=i, label=label)
         w('\n')
 
         # write data frames
