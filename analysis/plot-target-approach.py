@@ -16,20 +16,19 @@ import plots
     approach_sec=('plot variance for N sec prior to target acquisition', 'option', None, float),
 )
 def main(root,
-         pattern='*/*/*circuit00*.csv.gz',
+         pattern='*/*/*trial00*.csv.gz',
          markers='13-r-fing-index 25-l-fing-index 40-r-heel 37-r-knee',
          target_num=3,
          approach_sec=2):
     data = {(m, s): [] for m in markers.split() for s in range(12)}
     num_frames = int(100 * approach_sec)
     frames = list(range(num_frames))
-    target_locs = {}
+    trial_targets = None
     for trial in database.Experiment(root).trials_matching(pattern):
+        if trial_targets is None:
+            trial_targets = trial
         move = trial.movement_to(target_num)
-        try:
-            move.normalize(frame_rate=100, order=1, accuracy=100)
-        except:
-            continue
+        move.normalize(frame_rate=100, order=1)
         for marker, source in data:
             if all(move.df.source == source):
                 arr = move.df.loc[:, marker + '-x':marker + '-z']
@@ -37,12 +36,8 @@ def main(root,
                     np.asarray(arr)[len(move.df) - num_frames::-1],
                     columns=list('xyz'),
                     index=frames[:len(move.df)]))
-        target_locs[move.df['target'].iloc[0]] = np.asarray(move.df.ix[:, 'target-x':'target-z'])[0]
-        target_locs[move.df['source'].iloc[0]] = np.asarray(move.df.ix[:, 'source-x':'source-z'])[0]
     with plots.space() as ax:
-        for n, (x, y, z) in target_locs.items():
-            ax.scatter(x, z, y, marker='o', s=200, c='#111111', linewidth=0, alpha=0.7)
-            ax.text(x, z + 0.1, y + 0.1, str(n))
+        plots.show_cubes(ax, trial_targets)
         for i, (marker, keys) in enumerate(itertools.groupby(sorted(data), lambda x: x[0])):
             for j, (_, source) in enumerate(keys):
                 dfs = data[marker, source]
