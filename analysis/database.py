@@ -183,7 +183,7 @@ class Movement:
         '''
         if isinstance(marker, int):
             marker = 'marker{:02d}'.format(marker)
-        matches = [c for c in self.df.columns if marker in c]
+        matches = [c for c in self.df.columns if marker in c and c.endswith('-x')]
         if len(matches) == 0:
             raise KeyError(marker)
         if len(matches) == 1:
