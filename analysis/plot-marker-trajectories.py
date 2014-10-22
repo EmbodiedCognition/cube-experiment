@@ -16,14 +16,18 @@ import plots
     svt_frames=('number of trajectory-SVT frames', 'option', None, int),
 )
 def main(root,
-         pattern='*/*block00/*circuit00.csv.gz',
+         pattern='*/*block03*/*trial00*.csv.gz',
          markers='r-fing-index l-fing-index r-heel r-knee',
+         cubes='yes',
          spline=None,
          accuracy=0.01,
          svt_threshold=1000,
          svt_frames=5):
     with plots.space() as ax:
         for t in database.Experiment(root).trials_matching(pattern):
+            if cubes:
+                plots.show_cubes(ax, t)
+                cubes = False
             if spline:
                 t.normalize(order=spline, accuracy=accuracy)
             else:
