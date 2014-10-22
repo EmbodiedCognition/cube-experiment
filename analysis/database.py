@@ -151,7 +151,7 @@ class Movement:
 
     @property
     def effector_trajectory(self):
-        return self.trajectory('effector')
+        return self.trajectory(self.lookup_marker(self.df.effector.iloc[0]))
 
     @property
     def target_trajectory(self):
@@ -161,26 +161,88 @@ class Movement:
     def source_trajectory(self):
         return self.trajectory('source')
 
+    def lookup_marker(self, marker):
+        '''Look up a marker either by index or by name.
+
+        Parameters
+        ----------
+        marker : str or int
+            An integer marker index, or some sort of search string.
+
+        Returns
+        -------
+        str :
+            The name of the matching marker.
+
+        Raises
+        ------
+        KeyError :
+            If there is no matching marker.
+        ValueError :
+            If there is more than one match for the search string.
+        '''
+        if isinstance(marker, int):
+            marker = 'marker{:02d}'.format(marker)
+        matches = [c for c in self.df.columns if marker in c]
+        if len(matches) == 0:
+            raise KeyError(marker)
+        if len(matches) == 1:
+            return matches[0][:-2]
+        raise ValueError('more than one match for {}'.format(marker))
+
     def trajectory(self, marker):
-        x = marker + '-x'
-        # if "marker" isn't a column in our dataframe, it might not match
-        # exactly because most marker names are prefixed by numbers. so look for
-        # a column in the dataframe that ends with the name we want.
-        if x not in self.df.columns:
-            marker = [c for c in self.df.columns if c.endswith(x)][0][:-2]
+        '''Return the x, y, and z coordinates of a marker in our movement.
+
+        Parameters
+        ----------
+        marker : str or int
+            A search string or integer index to use for looking up the desired
+            marker.
+
+        Returns
+        -------
+        pd.DataFrame :
+            A data frame containing x, y, and z columns for each frame in our
+            movement.
+
+        Raises
+        ------
+        KeyError :
+            If there is no matching marker.
+        ValueError :
+            If there is more than one match for the marker search string.
+        '''
+        marker = self.lookup_marker(marker)
         df = self.df.loc[:, marker + '-x':marker + '-z'].copy()
         df.columns = list('xyz')
         return df
 
     def distance_to_target(self):
+        '''Return the distance to the target cube over time.
+
+        Returns
+        -------
+        pd.Series :
+            The Euclidean distance from the effector to the target over the
+            course of our movement.
+        '''
         df = self.effector_trajectory - self.target_trajectory
         return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def distance_from_source(self):
+        '''Return the distance to the source cube over time.
+
+        Returns
+        -------
+        pd.Series :
+            The Euclidean distance from the effector to the source over the
+            course of our movement.
+        '''
         df = self.effector_trajectory - self.source_trajectory
         return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def clear(self):
+        '''Remove our data frame from memory.'''
         self.df = None
 
     def _replace_dropouts(self, marker):
@@ -294,7 +356,7 @@ class Movement:
         '''Add columns to the data that reflect the instantaneous velocity.'''
         dt = 2 * self.approx_frame_rate
         for c in self.df.columns:
-            if c.startswith('marker-'):
+            if c.startswith('marker'):
                 ax = c[-1]
                 self.df['{}-v{}'.format(c[:-2], ax)] = pd.rolling_apply(
                     self.df[c], 3, lambda x: (x[-1] - x[0]) / dt).shift(-1)
@@ -356,12 +418,11 @@ class Movement:
         t0 = self.df.index[0]
         posts = pd.Index(np.arange(dt + t0 - t0 % dt, self.df.index[-1], dt))
 
-        start = min(i for i, c in enumerate(self.df.columns) if c.endswith('-c')) - 3
         values = []
         for i, column in enumerate(self.df.columns):
             series = self.df[column]
 
-            if i < start or column.endswith('-c') or series.count() <= order:
+            if series.count() <= order or column.endswith('-c') or not column.startswith('marker'):
                 values.append(series.reindex(posts, method='ffill', limit=1))
                 logging.debug('%s: reindexed series %d -> %d',
                               column, series.count(), values[-1].count())
