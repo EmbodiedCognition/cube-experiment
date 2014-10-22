@@ -278,9 +278,10 @@ class Movement:
             Compute the SVT using trajectories of this many consecutive frames.
             Defaults to 5.
         '''
-        markers = [
-            c for c in self.df.columns
-            if c[:2].isdigit() and c[-1] in 'xyz' and self.df[c].count()]
+        markers = [c for c in self.df.columns
+                   if c.startswith('marker')
+                   and c[-1] in 'xyz'
+                   and self.df[c].count()]
 
         means = [self.df[c].mean() for c in markers]
         stds = [self.df[c].std() for c in markers]
