@@ -5,6 +5,7 @@ import numpy as np
 
 @contextlib.contextmanager
 def plot(show=True):
+    '''Produce a 2D plotting axes, for use in a with statement.'''
     ax = lmj.plot.axes()
     yield ax
     if show:
@@ -13,11 +14,15 @@ def plot(show=True):
 
 @contextlib.contextmanager
 def space(show=True):
+    '''Produce a 3D plotting axes, for use in a with statement.'''
     ax = lmj.plot.axes(111, projection='3d', aspect='equal')
     yield ax
     ax.set_xlim([-3, 3])
     ax.set_ylim([-3, 3])
-    ax.set_zlim([0, 2])
+    ax.set_zlim([ 0, 2])
+    ax.w_xaxis.set_pane_color((1, 1, 1, 1))
+    ax.w_yaxis.set_pane_color((1, 1, 1, 1))
+    ax.w_zaxis.set_pane_color((1, 1, 1, 1))
     if show:
         lmj.plot.show()
 
