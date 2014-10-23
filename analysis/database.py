@@ -2,6 +2,7 @@ import climate
 import datetime
 import fnmatch
 import functools
+import gzip
 import numpy as np
 import os
 import pandas as pd
@@ -529,3 +530,10 @@ class Trial(Movement, TimedMixin, TreeMixin):
             if column.endswith('-c'):
                 self._replace_dropouts(column[:-2])
         logging.info('%s: loaded trial %s', self.basename, self.df.shape)
+
+    def save(self, path):
+        dirname = os.path.dirname(path)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        with gzip.open(path, 'w') as handle:
+            self.df.to_csv(handle, index_label='time')
