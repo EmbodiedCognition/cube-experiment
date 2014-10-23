@@ -19,18 +19,18 @@ def main(root,
          pattern='*/*block03*/*trial00*.csv.gz',
          markers='r-fing-index l-fing-index r-heel r-knee',
          cubes='yes',
-         spline=None,
-         accuracy=0.01,
-         svt_threshold=1000,
+         accuracy=0.002,
+         spline_order=None,
+         svt_threshold=None,
          svt_frames=5):
     with plots.space() as ax:
         for t in database.Experiment(root).trials_matching(pattern):
             if cubes:
                 plots.show_cubes(ax, t)
                 cubes = False
-            if spline:
-                t.normalize(order=spline, accuracy=accuracy)
-            else:
+            if spline_order:
+                t.normalize(order=spline_order, accuracy=1. / accuracy)
+            elif svt_threshold:
                 t.reindex()
                 t.svt(svt_threshold, accuracy, svt_frames)
             for i, marker in enumerate(markers.split()):
