@@ -284,51 +284,58 @@ class Movement:
                    and c[-1] in 'xyz'
                    and self.df[c].count()]
 
-        means = [self.df[c].mean() for c in markers]
-        stds = [self.df[c].std() for c in markers]
-        zscores = [(self.df[c] - mu) / (std + 1e-10)
-                   for c, mu, std in zip(markers, means, stds)]
-
-        zdf = pd.DataFrame(zscores).T
-        num_frames, num_markers = zdf.shape
+        odf = self.df[markers]
+        num_frames, num_markers = odf.shape
         num_entries = num_frames * num_markers
 
         # learning rate heuristic, see section 5.1.2 for details.
-        learning_rate = 1.2 * num_entries / zdf.count().sum()
+        learning_rate = 1.2 * num_entries / odf.count().sum()
+
+        # interpolate linearly and compute weights based on inverse distance to
+        # closest non-dropout frame. we want the smoothed data to obey a
+        # nearly-linear interpolation close to observed frames, but far from
+        # those frames we don't have much prior knowledge.
+        linear = odf.interpolate().fillna(method='ffill').fillna(method='bfill')
+        weights = pd.DataFrame(np.zeros_like(odf), index=odf.index, columns=odf.columns)
+        for c in markers:
+            _, closest = self._closest(self.df[c])
+            # discount linear interpolation by e^-1 at 100ms, e^-2 at 200ms, etc.
+            weights[c] = np.exp(-10 * closest / self.approx_frame_rate)
 
         # create dataframe of trajectories by reshaping existing data.
-        arr = np.asarray(zdf)
+        darr = np.asarray(linear)
+        warr = np.asarray(weights)
         extra = num_frames % consec_frames
         if extra > 0:
-            rows = np.empty((consec_frames - extra, num_markers), float)
-            rows[:] = float('nan')
-            arr = np.vstack([arr, rows])
-
-        df = pd.DataFrame(arr.reshape((len(arr) // consec_frames,
-                                       num_markers * consec_frames)))
+            z = np.zeros((consec_frames - extra, num_markers))
+            darr = np.vstack([darr, z])
+            warr = np.vstack([warr, z])
+        shape = len(darr) // consec_frames, num_markers * consec_frames
+        df = pd.DataFrame(darr.reshape(shape))
+        weights = pd.DataFrame(warr.reshape(shape))
 
         logging.info('SVT: filling %d x %d, reshaped as %d x %d',
                      num_frames, num_markers, df.shape[0], df.shape[1])
         logging.info('SVT: missing %d of %d values',
-                     num_entries - df.count().sum(),
+                     num_entries - odf.count().sum(),
                      num_entries)
 
         x = y = pd.DataFrame(np.zeros_like(df))
         rmse = min_rmse + 1
         while rmse > min_rmse:
-            err = df - x
-            y += learning_rate * err.fillna(0)
+            err = weights * (df - x)
+            y += learning_rate * err
             u, s, v = np.linalg.svd(y, full_matrices=False)
             s = np.clip(s - threshold, 0, np.inf)
             rmse = np.sqrt((err * err).mean().mean())
-            logging.info('SVT: error %f using %d singular values',
+            logging.info('SVT: weighted rmse %f using %d singular values',
                          rmse, len(s.nonzero()[0]))
             x = pd.DataFrame(np.dot(u, np.dot(np.diag(s), v)))
 
         x = np.asarray(x).reshape((-1, num_markers))[:num_frames]
-        df = pd.DataFrame(x, index=zdf.index, columns=zdf.columns)
-        for c, mu, std in zip(markers, means, stds):
-            self.df[c] = std * df[c] + mu
+        df = pd.DataFrame(x, index=odf.index, columns=odf.columns)
+        for c in markers:
+            self.df[c] = df[c]
 
     def recenter(self, markers):
         '''Recenter all position data relative to the given set of markers.
