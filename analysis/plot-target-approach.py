@@ -23,10 +23,10 @@ def main(root,
     data = {(m, s): [] for m in markers.split() for s in range(12)}
     num_frames = int(100 * approach_sec)
     frames = list(range(num_frames))
-    trial_targets = None
+    targets = None
     for trial in database.Experiment(root).trials_matching(pattern):
-        if trial_targets is None:
-            trial_targets = trial
+        if targets is None:
+            targets = trial
         move = trial.movement_to(target_num)
         move.normalize(frame_rate=100, order=1)
         for marker, source in data:
@@ -37,7 +37,7 @@ def main(root,
                     columns=list('xyz'),
                     index=frames[:len(move.df)]))
     with plots.space() as ax:
-        plots.show_cubes(ax, trial_targets)
+        plots.show_cubes(ax, targets)
         for i, (marker, keys) in enumerate(itertools.groupby(sorted(data), lambda x: x[0])):
             for j, (_, source) in enumerate(keys):
                 dfs = data[marker, source]
