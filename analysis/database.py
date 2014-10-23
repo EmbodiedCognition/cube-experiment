@@ -430,7 +430,6 @@ class Movement:
                               column, series.count(), values[-1].count())
                 continue
 
-            # to start, interpolate observed values linearly.
             linear = series.interpolate().fillna(method='ffill').fillna(method='bfill')
 
             if order == 1:
@@ -439,17 +438,7 @@ class Movement:
                               column, series.count(), values[-1].count())
                 continue
 
-            # compute the distance (in frames) to the nearest non-dropout frame.
-            drops = series.isnull()
-            closest_l = [0]
-            for d in drops:
-                closest_l.append(1 + closest_l[-1] if d else 0)
-            closest_r = [0]
-            for d in drops[::-1]:
-                closest_r.append(1 + closest_r[-1] if d else 0)
-            closest = pd.Series(
-                list(map(min, closest_l[1:], reversed(closest_r[1:]))),
-                index=series.index)
+            drops, closest = self._closest(series)
 
             # compute rolling standard deviation of observations.
             w = int(self.approx_frame_rate) // 5
@@ -487,6 +476,33 @@ class Movement:
             '''
 
         self.df = pd.DataFrame(dict(zip(self.df.columns, values)))
+
+    def _closest(self, series):
+        '''Compute the distance (in frames) to the nearest non-dropout frame.
+
+        Parameters
+        ----------
+        series : pd.Series
+            A Series holding a single channel of mocap data.
+
+        Returns
+        -------
+        drops : pd.Series
+            A boolean series indicating the dropout frames.
+        closest : pd.Series
+            An integer series containing, for each frame, the number of frames
+            to the nearest non-dropout frame.
+        '''
+        drops = series.isnull()
+        closest_l = [0]
+        for d in drops:
+            closest_l.append(1 + closest_l[-1] if d else 0)
+        closest_r = [0]
+        for d in drops[::-1]:
+            closest_r.append(1 + closest_r[-1] if d else 0)
+        return drops, pd.Series(
+            list(map(min, closest_l[1:], reversed(closest_r[1:]))),
+            index=series.index)
 
 
 class Trial(Movement, TimedMixin, TreeMixin):
