@@ -3,6 +3,7 @@ import datetime
 import fnmatch
 import functools
 import gzip
+import io
 import numpy as np
 import os
 import pandas as pd
@@ -558,5 +559,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
         dirname = os.path.dirname(path)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
+        s = io.StringIO()
+        self.df.to_csv(s, index_label='time')
         with gzip.open(path, 'w') as handle:
-            self.df.to_csv(handle, index_label='time')
+            handle.write(s.getvalue().encode('utf-8'))
