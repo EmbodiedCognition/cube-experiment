@@ -252,10 +252,13 @@ class Movement:
         '''
         m = self.df.loc[:, marker + '-x':marker + '-c']
         x, y, z, c = (m[c] for c in m.columns)
-        # "good" frames have reasonable condition numbers and are not
-        # located *exactly* at the origin (which, for the cube experiment,
-        # is on the floor).
+        # "good" frames have reasonable condition numbers and are not located
+        # *exactly* at the origin (which, for the cube experiment, is on the floor).
         good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
+        # if fewer than 1% of this marker's frames are good, drop the entire
+        # marker from the data.
+        if good.sum() / len(good) < 0.01:
+            good[:] = False
         self.df.ix[~good, marker + '-x':marker + '-z'] = float('nan')
 
     def svt(self, threshold=1000, min_rmse=0.01, consec_frames=5):
@@ -323,15 +326,20 @@ class Movement:
 
         x = y = pd.DataFrame(np.zeros_like(df))
         rmse = min_rmse + 1
-        while rmse > min_rmse:
+        i = 0
+        while i < 10000 and rmse > min_rmse:
             err = weights * (df - x)
             y += learning_rate * err
             u, s, v = np.linalg.svd(y, full_matrices=False)
             s = np.clip(s - threshold, 0, np.inf)
-            rmse = np.sqrt((err * err).mean().mean())
-            logging.info('SVT: weighted rmse %f using %d singular values',
-                         rmse, len(s.nonzero()[0]))
             x = pd.DataFrame(np.dot(u, np.dot(np.diag(s), v)))
+            rmse = np.sqrt((err * err).mean().mean())
+            if not i % 100:
+                logging.info('SVT %d: weighted rmse %f using %d singular values',
+                             i, rmse, len(s.nonzero()[0]))
+            i += 1
+        logging.info('SVT %d: weighted rmse %f using %d singular values',
+                     i, rmse, len(s.nonzero()[0]))
 
         x = np.asarray(x).reshape((-1, num_markers))[:num_frames]
         df = pd.DataFrame(x, index=odf.index, columns=odf.columns)
