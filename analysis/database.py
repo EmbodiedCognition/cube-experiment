@@ -247,7 +247,7 @@ class Movement:
         '''Remove our data frame from memory.'''
         self.df = None
 
-    def _replace_dropouts(self, marker):
+    def _replace_dropouts(self, marker, visible_threshold=0.1):
         '''For a given marker-start column, replace dropout frames with nans.
         '''
         m = self.df.loc[:, marker + '-x':marker + '-c']
@@ -257,7 +257,7 @@ class Movement:
         good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
         # if fewer than 1% of this marker's frames are good, drop the entire
         # marker from the data.
-        if good.sum() / len(good) < 0.01:
+        if good.sum() / len(good) < visible_threshold:
             good[:] = False
         self.df.ix[~good, marker + '-x':marker + '-z'] = float('nan')
 
