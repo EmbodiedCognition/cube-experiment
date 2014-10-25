@@ -34,7 +34,7 @@ class Trial(vrlab.Trial):
         self.home = targets[0]
         self.targets = targets[1:]
 
-        self.trial_label = ''.join('{:x}'.format(i) for i in targets)
+        self.trial_label = ''.join('{:x}'.format(t.index) for t in targets)
 
         self.current_target = self.previous_target = self.home
 
@@ -151,11 +151,12 @@ class Block(vrlab.Block):
 
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
-            experiment.output, '{}-block{:02d}-{}'.format(
-                stamp, self.index, suit.MARKER_LABELS[self.effector]))
+            experiment.output, '{}-block{:02d}'.format(stamp, self.index))
 
         logging.info('NEW BLOCK -- effector %s trials %s',
-                     suit.MARKER_LABELS[self.effector], self.trials)
+                     suit.MARKER_LABELS[self.effector],
+                     '|'.join(''.join('{:x}'.format(t) for t in ts)
+                              for ts in self.trials))
 
     @property
     def index(self):
