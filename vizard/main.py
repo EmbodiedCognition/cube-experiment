@@ -34,7 +34,7 @@ class Trial(vrlab.Trial):
         self.home = targets[0]
         self.targets = targets[1:]
 
-        self.trial_label = ''.join('{:x}'.format(i) for i in targets)
+        self.trial_label = ''.join('{:x}'.format(t.index) for t in targets)
 
         self.current_target = self.previous_target = self.home
 
@@ -145,7 +145,8 @@ class Block(vrlab.Block):
                 if os.path.isdir(block0):
                     trials = []
                     for trial in sorted(os.listdir(block0)):
-                        _, labels, _ = trial.split('-', 2)
+                        _, _, labels = trial.replace('.csv.gz', '').split('-')
+                        print(trial, labels)
                         trials.append([int(x, 16) for x in labels])
 
         self.trials = trials

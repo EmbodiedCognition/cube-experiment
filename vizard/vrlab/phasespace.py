@@ -2,6 +2,7 @@
 
 import collections
 import logging
+import math
 import OWL
 import random
 import threading
@@ -235,6 +236,7 @@ class RigidTracker(PointTracker):
         OWL.owlTracker(self._index, OWL.OWL_ENABLE)
 
 
+
 class Phasespace(viz.EventClass):
     '''Handle the details of getting mocap data from phasespace.
 
@@ -259,7 +261,7 @@ class Phasespace(viz.EventClass):
 
     def __init__(self,
                  server_name,
-                 freq=OWL.OWL_FREQUENCY_HIGHEST,
+                 freq=OWL.OWL_MAX_FREQUENCY,
                  scale=(0.001, 0.001, 0.001),
                  offset=(0, 0, 0),
                  postprocess=False,
@@ -278,12 +280,15 @@ class Phasespace(viz.EventClass):
         OWL.owlSetFloat(OWL.OWL_FREQUENCY, freq)
         OWL.owlSetInteger(OWL.OWL_STREAMING, OWL.OWL_ENABLE)
 
+        logging.info('running phasespace at %.1f Hz', freq)
+
         self.scale = scale
         self.offset = offset
         self.trackers = []
 
         self.frame_rate = freq
         self._updated = viz.tick()
+        self._lock = threading.Lock()
         self._thread = None
         self._running = False
 
@@ -310,7 +315,7 @@ class Phasespace(viz.EventClass):
             wait = 1. / self.frame_rate - elapsed
             while wait < 0:
                 wait += 1. / self.frame_rate
-            time.sleep(wait)
+            #time.sleep(wait)
 
     def start_timer(self):
         self.callback(viz.TIMER_EVENT, self.update_timer)
@@ -323,9 +328,13 @@ class Phasespace(viz.EventClass):
 
     def update(self):
         '''Update our knowledge of the current data from phasespace.'''
+        if self._lock.acquire(False):
+            return
+
         now = viz.tick()
-        #logging.info('%dus elapsed since last phasespace update',
-        #             1000000 * (now - self._updated))
+        #if now - math.floor(now) < 0.1 / self.frame_rate:
+        #    logging.info('%dus elapsed since last phasespace update',
+        #                 1000000 * (now - self._updated))
         self._updated = now
 
         rigids = OWL.owlGetRigids()
@@ -337,6 +346,7 @@ class Phasespace(viz.EventClass):
                 'OWL error %s (%s) getting marker data',
                 ERROR_MAP.get(err, hex), hex)
             return
+        getting_at = viz.tick() - now
 
         sx, sy, sz = self.scale
         ox, oy, oz = self.offset
@@ -351,12 +361,21 @@ class Phasespace(viz.EventClass):
             self.trackers[t].update_markers(o,
                 Marker(pos=transform(x, y, z), cond=marker.cond),
                 Marker(pos=(x, y, z), cond=marker.cond))
+        marker_at = viz.tick() - now
 
         for rigid in rigids:
             self.trackers[rigid.id].update_pose(Pose(
                 pos=transform(*rigid.pose[0:3]),
                 quat=swizzle(*rigid.pose[3:7]),
                 cond=rigid.cond))
+        rigid_at = viz.tick() - now
+
+        #logging.info('phasespace update: %dus -> %dus -> %dus',
+        #             1000000 * getting_at,
+        #             1000000 * marker_at,
+        #             1000000 * rigid_at)
+
+        self._lock.release()
 
     def get_markers(self):
         '''Get a dictionary of all current marker locations.
