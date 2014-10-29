@@ -390,7 +390,13 @@ class Movement:
             Frame rate for desired time offsets. Defaults to 100Hz.
         '''
         posts = np.arange(0, self.df.index[-1], 1. / frame_rate)
-        self.df = self.df.reindex(posts, method='ffill', limit=1)
+        df = pd.DataFrame(columns=self.df.columns, index=posts)
+        for c in self.df.columns:
+            series = self.df[c].reindex(posts, method='ffill', limit=1)
+            if not c.startswith('marker'):
+                series = series.ffill().bfill()
+            df[c] = series
+        self.df = df
 
     def normalize(self, frame_rate=100., order=1, dropout_decay=0.1, accuracy=1):
         '''Use spline interpolation to resample data on a regular time grid.
