@@ -23,7 +23,7 @@ class Experiment:
 
     def __init__(self, root):
         self.root = root
-        self.subjects = [Subject(self, f) for f in os.listdir(root)]
+        self.subjects = [Subject(self, f) for f in sorted(os.listdir(root))]
         self.df = None
 
     @property
@@ -84,7 +84,7 @@ class Subject(TimedMixin, TreeMixin):
     def __init__(self, experiment, basename):
         self.experiment = self.parent = experiment
         self.basename = basename
-        self.blocks = self.children = [Block(self, f) for f in os.listdir(self.root)]
+        self.blocks = self.children = [Block(self, f) for f in sorted(os.listdir(self.root))]
         logging.info('subject %s: %d blocks, %d trials',
                      self.key, len(self.blocks), sum(len(b.trials) for b in self.blocks))
         self.df = None
@@ -123,7 +123,7 @@ class Block(TimedMixin, TreeMixin):
     def __init__(self, subject, basename):
         self.subject = self.parent = subject
         self.basename = basename
-        self.trials = self.children = [Trial(self, f) for f in os.listdir(self.root)]
+        self.trials = self.children = [Trial(self, f) for f in sorted(os.listdir(self.root))]
 
     def load(self, pattern):
         for t in self.trials:
