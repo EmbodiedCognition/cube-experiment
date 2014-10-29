@@ -61,7 +61,7 @@ class TreeMixin:
     def root(self):
         return os.path.join(self.parent.root, self.basename)
 
-    @functools.lru_cache(maxsize=5)
+    @functools.lru_cache(maxsize=100)
     def matches(self, pattern):
         return any(c.matches(pattern) for c in self.children)
 
@@ -552,7 +552,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
     def movement_to(self, target):
         return Movement(self.df[self.df.target == target])
 
-    @functools.lru_cache(maxsize=5)
+    @functools.lru_cache(maxsize=100)
     def matches(self, pattern):
         return fnmatch.fnmatch(self.root, pattern)
 
@@ -561,7 +561,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
         for column in self.df.columns:
             if column.endswith('-c'):
                 self._replace_dropouts(column[:-2])
-        logging.info('%s: loaded trial %s', self.basename, self.df.shape)
+        logging.info('%s: loaded trial %s', self.root, self.df.shape)
 
     def save(self, path):
         dirname = os.path.dirname(path)
