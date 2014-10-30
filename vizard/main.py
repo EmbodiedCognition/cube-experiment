@@ -153,11 +153,12 @@ class Block(vrlab.Block):
 
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
-            experiment.output, '{}-block{:02d}-{}'.format(
-                stamp, self.index, suit.MARKER_LABELS[self.effector]))
+            experiment.output, '{}-block{:02d}'.format(stamp, self.index))
 
         logging.info('NEW BLOCK -- effector %s trials %s',
-                     suit.MARKER_LABELS[self.effector], self.trials)
+                     suit.MARKER_LABELS[self.effector],
+                     '|'.join(''.join('{:x}'.format(t) for t in ts)
+                              for ts in self.trials))
 
     @property
     def index(self):
