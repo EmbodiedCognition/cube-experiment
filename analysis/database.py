@@ -307,10 +307,10 @@ class Movement:
         odf = self.df[markers]
         num_frames, num_markers = odf.shape
         num_entries = num_frames * num_markers
-        filled_ratio = num_entries / odf.count().sum()
+        filled_ratio = odf.count().sum() / num_entries
 
         # learning rate heuristic, see section 5.1.2 for details.
-        learning_rate = 1.2 * filled_ratio
+        learning_rate = 1.2 / filled_ratio
 
         # interpolate linearly and compute weights based on inverse distance to
         # closest non-dropout frame. we want the smoothed data to obey a
@@ -337,7 +337,7 @@ class Movement:
 
         logging.info('SVT: filling %d x %d, reshaped as %d x %d',
                      num_frames, num_markers, df.shape[0], df.shape[1])
-        logging.info('SVT: missing %d of %d values (%.1f %% filled)',
+        logging.info('SVT: missing %d of %d values (%.1f%% filled)',
                      num_entries - odf.count().sum(),
                      num_entries,
                      100 * filled_ratio)
