@@ -256,11 +256,11 @@ class Movement:
         # "good" frames have reasonable condition numbers and are not located
         # *exactly* at the origin (which, for the cube experiment, is on the floor).
         good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
-        # if fewer than 1% of this marker's frames are good, drop the entire
-        # marker from the data.
+        # if fewer than the given threshold of this marker's frames are good,
+        # drop the entire marker from the data.
         if good.sum() / len(good) < visible_threshold:
             good[:] = False
-        self.df.ix[~good, marker + '-x':marker + '-z'] = float('nan')
+        self.df.ix[~good, marker + '-x':marker + '-c'] = float('nan')
 
     def svt(self, threshold=1000, min_rmse=0.01, consec_frames=5):
         '''Complete missing marker data using singular value thresholding.
