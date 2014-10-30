@@ -8,6 +8,7 @@ import numpy as np
 import os
 import pandas as pd
 import scipy.interpolate
+import scipy.signal
 
 logging = climate.get_logger('source')
 
@@ -397,6 +398,24 @@ class Movement:
                 series = series.ffill().bfill()
             df[c] = series
         self.df = df
+
+    def lowpass(self, freq=10., order=4):
+        '''Filter marker data using a butterworth low-pass filter.
+
+        Parameters
+        ----------
+        freq : float, optional
+            Use a butterworth filter with this cutoff frequency. Defaults to
+            10Hz.
+        order : int, optional
+            Order of the butterworth filter. Defaults to 4.
+        '''
+        nyquist = 1 / (2 * self.approx_delta_t)
+        assert 0 < freq < nyquist
+        b, a = scipy.signal.butter(order, freq / nyquist)
+        for c in self.df.columns:
+            if c.startswith('marker') and c[-1] in 'xyz':
+                self.df[c] = scipy.signal.filtfilt(a, b, self.df[c])
 
     def normalize(self, frame_rate=100., order=1, dropout_decay=0.1, accuracy=1):
         '''Use spline interpolation to resample data on a regular time grid.
