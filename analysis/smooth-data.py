@@ -7,7 +7,7 @@ import database
     root='load data files from this directory tree',
     output='save smoothed data files to this directory tree',
     frame_rate=('reindex frames to this rate', 'option', None, float),
-    accuracy=('drop markers with less than this ratio of visible frames', 'option', None, float),
+    visibility=('drop markers with < this ratio of visible frames', 'option', None, float),
     accuracy=('fit SVT with this accuracy', 'option', None, float),
     threshold=('SVT threshold', 'option', None, float),
     frames=('number of frames for SVT', 'option', None, int),
