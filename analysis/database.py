@@ -2,6 +2,8 @@ import climate
 import datetime
 import fnmatch
 import functools
+import gzip
+import io
 import numpy as np
 import os
 import pandas as pd
@@ -21,7 +23,7 @@ class Experiment:
 
     def __init__(self, root):
         self.root = root
-        self.subjects = [Subject(self, f) for f in os.listdir(root)]
+        self.subjects = [Subject(self, f) for f in sorted(os.listdir(root))]
         self.df = None
 
     @property
@@ -59,7 +61,7 @@ class TreeMixin:
     def root(self):
         return os.path.join(self.parent.root, self.basename)
 
-    @functools.lru_cache(maxsize=5)
+    @functools.lru_cache(maxsize=100)
     def matches(self, pattern):
         return any(c.matches(pattern) for c in self.children)
 
@@ -82,7 +84,7 @@ class Subject(TimedMixin, TreeMixin):
     def __init__(self, experiment, basename):
         self.experiment = self.parent = experiment
         self.basename = basename
-        self.blocks = self.children = [Block(self, f) for f in os.listdir(self.root)]
+        self.blocks = self.children = [Block(self, f) for f in sorted(os.listdir(self.root))]
         logging.info('subject %s: %d blocks, %d trials',
                      self.key, len(self.blocks), sum(len(b.trials) for b in self.blocks))
         self.df = None
@@ -121,7 +123,7 @@ class Block(TimedMixin, TreeMixin):
     def __init__(self, subject, basename):
         self.subject = self.parent = subject
         self.basename = basename
-        self.trials = self.children = [Trial(self, f) for f in os.listdir(self.root)]
+        self.trials = self.children = [Trial(self, f) for f in sorted(os.listdir(self.root))]
 
     def load(self, pattern):
         for t in self.trials:
@@ -151,7 +153,7 @@ class Movement:
 
     @property
     def effector_trajectory(self):
-        return self.trajectory('effector')
+        return self.trajectory(self.lookup_marker(self.df.effector.iloc[0]))
 
     @property
     def target_trajectory(self):
@@ -161,37 +163,102 @@ class Movement:
     def source_trajectory(self):
         return self.trajectory('source')
 
+    def lookup_marker(self, marker):
+        '''Look up a marker either by index or by name.
+
+        Parameters
+        ----------
+        marker : str or int
+            An integer marker index, or some sort of search string.
+
+        Returns
+        -------
+        str :
+            The name of the matching marker.
+
+        Raises
+        ------
+        KeyError :
+            If there is no matching marker.
+        ValueError :
+            If there is more than one match for the search string.
+        '''
+        if isinstance(marker, int):
+            marker = 'marker{:02d}'.format(marker)
+        matches = [c for c in self.df.columns if marker in c and c.endswith('-x')]
+        if len(matches) == 0:
+            raise KeyError(marker)
+        if len(matches) == 1:
+            return matches[0][:-2]
+        raise ValueError('more than one match for {}'.format(marker))
+
     def trajectory(self, marker):
-        x = marker + '-x'
-        # if "marker" isn't a column in our dataframe, it might not match
-        # exactly because most marker names are prefixed by numbers. so look for
-        # a column in the dataframe that ends with the name we want.
-        if x not in self.df.columns:
-            marker = [c for c in self.df.columns if c.endswith(x)][0][:-2]
+        '''Return the x, y, and z coordinates of a marker in our movement.
+
+        Parameters
+        ----------
+        marker : str or int
+            A search string or integer index to use for looking up the desired
+            marker.
+
+        Returns
+        -------
+        pd.DataFrame :
+            A data frame containing x, y, and z columns for each frame in our
+            movement.
+
+        Raises
+        ------
+        KeyError :
+            If there is no matching marker.
+        ValueError :
+            If there is more than one match for the marker search string.
+        '''
+        marker = self.lookup_marker(marker)
         df = self.df.loc[:, marker + '-x':marker + '-z'].copy()
         df.columns = list('xyz')
         return df
 
     def distance_to_target(self):
+        '''Return the distance to the target cube over time.
+
+        Returns
+        -------
+        pd.Series :
+            The Euclidean distance from the effector to the target over the
+            course of our movement.
+        '''
         df = self.effector_trajectory - self.target_trajectory
         return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def distance_from_source(self):
+        '''Return the distance to the source cube over time.
+
+        Returns
+        -------
+        pd.Series :
+            The Euclidean distance from the effector to the source over the
+            course of our movement.
+        '''
         df = self.effector_trajectory - self.source_trajectory
         return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def clear(self):
+        '''Remove our data frame from memory.'''
         self.df = None
 
-    def _replace_dropouts(self, marker):
+    def _replace_dropouts(self, marker, visible_threshold=0.1):
         '''For a given marker-start column, replace dropout frames with nans.
         '''
         m = self.df.loc[:, marker + '-x':marker + '-c']
         x, y, z, c = (m[c] for c in m.columns)
-        # "good" frames have reasonable condition numbers and are not
-        # located *exactly* at the origin (which, for the cube experiment,
-        # is on the floor).
+        # "good" frames have reasonable condition numbers and are not located
+        # *exactly* at the origin (which, for the cube experiment, is on the floor).
         good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
+        # if fewer than 1% of this marker's frames are good, drop the entire
+        # marker from the data.
+        if good.sum() / len(good) < visible_threshold:
+            good[:] = False
         self.df.ix[~good, marker + '-x':marker + '-z'] = float('nan')
 
     def svt(self, threshold=1000, min_rmse=0.01, consec_frames=5):
@@ -216,55 +283,68 @@ class Movement:
             Compute the SVT using trajectories of this many consecutive frames.
             Defaults to 5.
         '''
-        markers = [
-            c for c in self.df.columns
-            if c[:2].isdigit() and c[-1] in 'xyz' and self.df[c].count()]
+        markers = [c for c in self.df.columns
+                   if c.startswith('marker')
+                   and c[-1] in 'xyz'
+                   and self.df[c].count()]
 
-        means = [self.df[c].mean() for c in markers]
-        stds = [self.df[c].std() for c in markers]
-        zscores = [(self.df[c] - mu) / (std + 1e-10)
-                   for c, mu, std in zip(markers, means, stds)]
-
-        zdf = pd.DataFrame(zscores).T
-        num_frames, num_markers = zdf.shape
+        odf = self.df[markers]
+        num_frames, num_markers = odf.shape
         num_entries = num_frames * num_markers
 
         # learning rate heuristic, see section 5.1.2 for details.
-        learning_rate = 1.2 * num_entries / zdf.count().sum()
+        learning_rate = 1.2 * num_entries / odf.count().sum()
+
+        # interpolate linearly and compute weights based on inverse distance to
+        # closest non-dropout frame. we want the smoothed data to obey a
+        # nearly-linear interpolation close to observed frames, but far from
+        # those frames we don't have much prior knowledge.
+        linear = odf.interpolate().fillna(method='ffill').fillna(method='bfill')
+        weights = pd.DataFrame(np.zeros_like(odf), index=odf.index, columns=odf.columns)
+        for c in markers:
+            _, closest = self._closest(self.df[c])
+            # discount linear interpolation by e^-1 at 100ms, e^-2 at 200ms, etc.
+            weights[c] = np.exp(-10 * closest / self.approx_frame_rate)
 
         # create dataframe of trajectories by reshaping existing data.
-        arr = np.asarray(zdf)
+        darr = np.asarray(linear)
+        warr = np.asarray(weights)
         extra = num_frames % consec_frames
         if extra > 0:
-            rows = np.empty((consec_frames - extra, num_markers), float)
-            rows[:] = float('nan')
-            arr = np.vstack([arr, rows])
-
-        df = pd.DataFrame(arr.reshape((len(arr) // consec_frames,
-                                       num_markers * consec_frames)))
+            z = np.zeros((consec_frames - extra, num_markers))
+            darr = np.vstack([darr, z])
+            warr = np.vstack([warr, z])
+        shape = len(darr) // consec_frames, num_markers * consec_frames
+        df = pd.DataFrame(darr.reshape(shape))
+        weights = pd.DataFrame(warr.reshape(shape))
 
         logging.info('SVT: filling %d x %d, reshaped as %d x %d',
                      num_frames, num_markers, df.shape[0], df.shape[1])
         logging.info('SVT: missing %d of %d values',
-                     num_entries - df.count().sum(),
+                     num_entries - odf.count().sum(),
                      num_entries)
 
         x = y = pd.DataFrame(np.zeros_like(df))
         rmse = min_rmse + 1
-        while rmse > min_rmse:
-            err = df - x
-            y += learning_rate * err.fillna(0)
+        i = 0
+        while i < 10000 and rmse > min_rmse:
+            err = weights * (df - x)
+            y += learning_rate * err
             u, s, v = np.linalg.svd(y, full_matrices=False)
             s = np.clip(s - threshold, 0, np.inf)
-            rmse = np.sqrt((err * err).mean().mean())
-            logging.info('SVT: error %f using %d singular values',
-                         rmse, len(s.nonzero()[0]))
             x = pd.DataFrame(np.dot(u, np.dot(np.diag(s), v)))
+            rmse = np.sqrt((err * err).mean().mean())
+            if not i % 100:
+                logging.info('SVT %d: weighted rmse %f using %d singular values',
+                             i, rmse, len(s.nonzero()[0]))
+            i += 1
+        logging.info('SVT %d: weighted rmse %f using %d singular values',
+                     i, rmse, len(s.nonzero()[0]))
 
         x = np.asarray(x).reshape((-1, num_markers))[:num_frames]
-        df = pd.DataFrame(x, index=zdf.index, columns=zdf.columns)
-        for c, mu, std in zip(markers, means, stds):
-            self.df[c] = std * df[c] + mu
+        df = pd.DataFrame(x, index=odf.index, columns=odf.columns)
+        for c in markers:
+            self.df[c] = df[c]
 
     def recenter(self, markers):
         '''Recenter all position data relative to the given set of markers.
@@ -294,7 +374,7 @@ class Movement:
         '''Add columns to the data that reflect the instantaneous velocity.'''
         dt = 2 * self.approx_frame_rate
         for c in self.df.columns:
-            if c.startswith('marker-'):
+            if c.startswith('marker'):
                 ax = c[-1]
                 self.df['{}-v{}'.format(c[:-2], ax)] = pd.rolling_apply(
                     self.df[c], 3, lambda x: (x[-1] - x[0]) / dt).shift(-1)
@@ -310,7 +390,13 @@ class Movement:
             Frame rate for desired time offsets. Defaults to 100Hz.
         '''
         posts = np.arange(0, self.df.index[-1], 1. / frame_rate)
-        self.df = self.df.reindex(posts, method='ffill', limit=1)
+        df = pd.DataFrame(columns=self.df.columns, index=posts)
+        for c in self.df.columns:
+            series = self.df[c].reindex(posts, method='ffill', limit=1)
+            if not c.startswith('marker'):
+                series = series.ffill().bfill()
+            df[c] = series
+        self.df = df
 
     def normalize(self, frame_rate=100., order=1, dropout_decay=0.1, accuracy=1):
         '''Use spline interpolation to resample data on a regular time grid.
@@ -356,18 +442,16 @@ class Movement:
         t0 = self.df.index[0]
         posts = pd.Index(np.arange(dt + t0 - t0 % dt, self.df.index[-1], dt))
 
-        start = min(i for i, c in enumerate(self.df.columns) if c.endswith('-c')) - 3
         values = []
         for i, column in enumerate(self.df.columns):
             series = self.df[column]
 
-            if i < start or column.endswith('-c') or series.count() <= order:
+            if series.count() <= order or column.endswith('-c') or not column.startswith('marker'):
                 values.append(series.reindex(posts, method='ffill', limit=1))
                 logging.debug('%s: reindexed series %d -> %d',
                               column, series.count(), values[-1].count())
                 continue
 
-            # to start, interpolate observed values linearly.
             linear = series.interpolate().fillna(method='ffill').fillna(method='bfill')
 
             if order == 1:
@@ -376,17 +460,7 @@ class Movement:
                               column, series.count(), values[-1].count())
                 continue
 
-            # compute the distance (in frames) to the nearest non-dropout frame.
-            drops = series.isnull()
-            closest_l = [0]
-            for d in drops:
-                closest_l.append(1 + closest_l[-1] if d else 0)
-            closest_r = [0]
-            for d in drops[::-1]:
-                closest_r.append(1 + closest_r[-1] if d else 0)
-            closest = pd.Series(
-                list(map(min, closest_l[1:], reversed(closest_r[1:]))),
-                index=series.index)
+            drops, closest = self._closest(series)
 
             # compute rolling standard deviation of observations.
             w = int(self.approx_frame_rate) // 5
@@ -425,6 +499,33 @@ class Movement:
 
         self.df = pd.DataFrame(dict(zip(self.df.columns, values)))
 
+    def _closest(self, series):
+        '''Compute the distance (in frames) to the nearest non-dropout frame.
+
+        Parameters
+        ----------
+        series : pd.Series
+            A Series holding a single channel of mocap data.
+
+        Returns
+        -------
+        drops : pd.Series
+            A boolean series indicating the dropout frames.
+        closest : pd.Series
+            An integer series containing, for each frame, the number of frames
+            to the nearest non-dropout frame.
+        '''
+        drops = series.isnull()
+        closest_l = [0]
+        for d in drops:
+            closest_l.append(1 + closest_l[-1] if d else 0)
+        closest_r = [0]
+        for d in drops[::-1]:
+            closest_r.append(1 + closest_r[-1] if d else 0)
+        return drops, pd.Series(
+            list(map(min, closest_l[1:], reversed(closest_r[1:]))),
+            index=series.index)
+
 
 class Trial(Movement, TimedMixin, TreeMixin):
     '''Encapsulates data from a single trial (from one block of one subject).
@@ -457,7 +558,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
     def movement_to(self, target):
         return Movement(self.df[self.df.target == target])
 
-    @functools.lru_cache(maxsize=5)
+    @functools.lru_cache(maxsize=100)
     def matches(self, pattern):
         return fnmatch.fnmatch(self.root, pattern)
 
@@ -466,4 +567,13 @@ class Trial(Movement, TimedMixin, TreeMixin):
         for column in self.df.columns:
             if column.endswith('-c'):
                 self._replace_dropouts(column[:-2])
-        logging.info('%s: loaded trial %s', self.basename, self.df.shape)
+        logging.info('%s: loaded trial %s', self.root, self.df.shape)
+
+    def save(self, path):
+        dirname = os.path.dirname(path)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        s = io.StringIO()
+        self.df.to_csv(s, index_label='time')
+        with gzip.open(path, 'w') as handle:
+            handle.write(s.getvalue().encode('utf-8'))

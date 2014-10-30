@@ -11,7 +11,7 @@ import plots
     root='plot data from this experiment subjects',
     pattern=('plot data from files matching this pattern', 'option'),
 )
-def main(root, pattern='*/*block03/*circuit00.csv.gz'):
+def main(root, pattern='*/*/*trial00*.csv.gz'):
     with plots.plot() as ax:
         for trial in database.Experiment(root).trials_matching(pattern):
             for t in range(12):

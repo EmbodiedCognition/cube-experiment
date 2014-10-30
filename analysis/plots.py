@@ -27,6 +27,28 @@ def space(show=True):
         lmj.plot.show()
 
 
+def show_cubes(ax, trial):
+    '''Plot markers for target cubes on the given axes.
+
+    Parameters
+    ----------
+    ax : plotting axes
+    trial : Trial object
+    '''
+    plotted = set()
+    xs, ys, zs = [], [], []
+    for flavor in ('source', 'target'):
+        cols = [flavor + suffix for suffix in ('', '-x', '-y', '-z')]
+        for _, (n, x, y, z) in trial.df[cols].drop_duplicates().iterrows():
+            if n not in plotted:
+                plotted.add(n)
+                xs.append(x)
+                ys.append(y)
+                zs.append(z)
+                ax.text(x, z + 0.1, y + 0.1, str(int(n)))
+    ax.scatter(xs, zs, ys, marker='o', s=200, color='#111111', linewidth=0, alpha=0.7)
+
+
 u, v = np.mgrid[0:2 * np.pi:11j, 0:np.pi:7j]
 sphere = np.array([np.cos(u) * np.sin(v), np.sin(u) * np.sin(v), np.cos(v)])
 
