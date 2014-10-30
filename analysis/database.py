@@ -307,9 +307,10 @@ class Movement:
         odf = self.df[markers]
         num_frames, num_markers = odf.shape
         num_entries = num_frames * num_markers
+        filled_ratio = num_entries / odf.count().sum()
 
         # learning rate heuristic, see section 5.1.2 for details.
-        learning_rate = 1.2 * num_entries / odf.count().sum()
+        learning_rate = 1.2 * filled_ratio
 
         # interpolate linearly and compute weights based on inverse distance to
         # closest non-dropout frame. we want the smoothed data to obey a
@@ -336,13 +337,17 @@ class Movement:
 
         logging.info('SVT: filling %d x %d, reshaped as %d x %d',
                      num_frames, num_markers, df.shape[0], df.shape[1])
-        logging.info('SVT: missing %d of %d values',
+        logging.info('SVT: missing %d of %d values (%.1f %% filled)',
                      num_entries - odf.count().sum(),
-                     num_entries)
+                     num_entries,
+                     100 * filled_ratio)
 
         x = y = pd.DataFrame(np.zeros_like(df))
         rmse = min_rmse + 1
         i = 0
+        def log():
+            logging.info('SVT %d: weighted rmse %f using %d singular values',
+                         i, rmse, len(s.nonzero()[0]))
         while i < 10000 and rmse > min_rmse:
             err = weights * (df - x)
             y += learning_rate * err
@@ -350,12 +355,9 @@ class Movement:
             s = np.clip(s - threshold, 0, np.inf)
             x = pd.DataFrame(np.dot(u, np.dot(np.diag(s), v)))
             rmse = np.sqrt((err * err).mean().mean())
-            if not i % 10:
-                logging.info('SVT %d: weighted rmse %f using %d singular values',
-                             i, rmse, len(s.nonzero()[0]))
+            if not i % 10: log()
             i += 1
-        logging.info('SVT %d: weighted rmse %f using %d singular values',
-                     i, rmse, len(s.nonzero()[0]))
+        log()
 
         x = np.asarray(x).reshape((-1, num_markers))[:num_frames]
         df = pd.DataFrame(x, index=odf.index, columns=odf.columns)
