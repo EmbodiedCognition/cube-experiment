@@ -18,6 +18,5 @@ def main(root, output, frame_rate=100., accuracy=0.002, threshold=100, frames=5)
         t.save(t.root.replace(root, output))
 
 
-
 if __name__ == '__main__':
     climate.call(main)
