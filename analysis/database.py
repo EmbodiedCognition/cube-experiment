@@ -148,7 +148,7 @@ class Movement:
         self.df = df
 
     @property
-    def approx_frame_rate(self):
+    def approx_delta_t(self):
         return (self.df.index[1:] - self.df.index[:-1]).mean()
 
     @property
@@ -304,7 +304,7 @@ class Movement:
         for c in markers:
             _, closest = self._closest(self.df[c])
             # discount linear interpolation by e^-1 at 100ms, e^-2 at 200ms, etc.
-            weights[c] = np.exp(-10 * closest / self.approx_frame_rate)
+            weights[c] = np.exp(-10 * self.approx_delta_t * closest)
 
         # create dataframe of trajectories by reshaping existing data.
         darr = np.asarray(linear)
@@ -372,9 +372,9 @@ class Movement:
 
     def add_velocities(self):
         '''Add columns to the data that reflect the instantaneous velocity.'''
-        dt = 2 * self.approx_frame_rate
+        dt = 2 * self.approx_delta_t
         for c in self.df.columns:
-            if c.startswith('marker'):
+            if c.startswith('marker') and c[-1] in 'xyz':
                 ax = c[-1]
                 self.df['{}-v{}'.format(c[:-2], ax)] = pd.rolling_apply(
                     self.df[c], 3, lambda x: (x[-1] - x[0]) / dt).shift(-1)
@@ -463,7 +463,7 @@ class Movement:
             drops, closest = self._closest(series)
 
             # compute rolling standard deviation of observations.
-            w = int(self.approx_frame_rate) // 5
+            w = int(1 / self.approx_delta_t) // 5
             std = pd.rolling_std(linear, w).shift(-w // 2)
             std[std.isnull()] = std.mean()
 
