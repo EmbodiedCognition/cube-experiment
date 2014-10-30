@@ -150,7 +150,8 @@ class Movement:
 
     @property
     def approx_delta_t(self):
-        return (self.df.index[1:] - self.df.index[:-1]).mean()
+        return (np.asarray(self.df.index[1:]) -
+                np.asarray(self.df.index[:-1])).mean()
 
     @property
     def effector_trajectory(self):
