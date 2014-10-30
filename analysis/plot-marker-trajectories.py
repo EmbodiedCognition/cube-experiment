@@ -19,6 +19,7 @@ def main(root,
          pattern='*/*block03*/*trial00*.csv.gz',
          markers='r-fing-index l-fing-index r-heel r-knee',
          cubes='yes',
+         dropouts='yes',
          accuracy=0.002,
          spline_order=None,
          svt_threshold=None,
@@ -28,6 +29,8 @@ def main(root,
             if cubes:
                 plots.show_cubes(ax, t)
                 cubes = False
+            if dropouts:
+                t.replace_dropouts()
             if spline_order:
                 t.normalize(order=spline_order, accuracy=1. / accuracy)
             elif svt_threshold:
