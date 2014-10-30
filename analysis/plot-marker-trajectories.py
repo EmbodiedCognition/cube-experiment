@@ -10,6 +10,8 @@ import plots
     root='load experiment data from this directory',
     pattern=('plot data from files matching this pattern', 'option'),
     markers=('plot traces of these markers', 'option'),
+    cubes=('do not plot target cubes', 'option'),
+    dropouts=('replace dropout frames with nans', 'option'),
     accuracy=('fit spline/SVT with this accuracy', 'option', None, float),
     spline_order=('interpolate data with a spline of this order', 'option', None, int),
     svt_threshold=('trajectory-SVT threshold', 'option', None, float),
@@ -19,14 +21,14 @@ def main(root,
          pattern='*/*block03*/*trial00*.csv.gz',
          markers='r-fing-index l-fing-index r-heel r-knee',
          cubes='yes',
-         dropouts='yes',
+         dropouts=None,
          accuracy=0.002,
          spline_order=None,
          svt_threshold=None,
          svt_frames=5):
     with plots.space() as ax:
         for t in database.Experiment(root).trials_matching(pattern):
-            if cubes:
+            if cubes == 'yes':
                 plots.show_cubes(ax, t)
                 cubes = False
             if dropouts:
