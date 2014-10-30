@@ -10,8 +10,8 @@ import plots
     root='load experiment data from this directory',
     pattern=('plot data from files matching this pattern', 'option'),
     markers=('plot traces of these markers', 'option'),
-    spline=('interpolate data with a spline of this order', 'option', None, int),
-    accuracy=('fit spline with this accuracy', 'option', None, float),
+    accuracy=('fit spline/SVT with this accuracy', 'option', None, float),
+    spline_order=('interpolate data with a spline of this order', 'option', None, int),
     svt_threshold=('trajectory-SVT threshold', 'option', None, float),
     svt_frames=('number of trajectory-SVT frames', 'option', None, int),
 )
