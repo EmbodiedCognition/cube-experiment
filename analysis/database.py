@@ -398,6 +398,7 @@ class Movement:
                 series = series.ffill().bfill()
             df[c] = series
         self.df = df
+        self._debug('counts after reindexing')
 
     def lowpass(self, freq=10., order=4):
         '''Filter marker data using a butterworth low-pass filter.
@@ -587,6 +588,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
             if column.endswith('-c'):
                 self._replace_dropouts(column[:-2])
         logging.info('%s: loaded trial %s', self.root, self.df.shape)
+        self._debug('loaded data counts')
 
     def save(self, path):
         dirname = os.path.dirname(path)
@@ -596,3 +598,9 @@ class Trial(Movement, TimedMixin, TreeMixin):
         self.df.to_csv(s, index_label='time')
         with gzip.open(path, 'w') as handle:
             handle.write(s.getvalue().encode('utf-8'))
+
+    def _debug(self, label):
+        logging.debug(label)
+        for c in self.df.columns:
+            logging.debug('%30s: %6d of %6d values',
+                          c, self.df[c].count(), len(self.df[c]))
