@@ -7,6 +7,7 @@ import io
 import numpy as np
 import os
 import pandas as pd
+import re
 import scipy.interpolate
 
 logging = climate.get_logger('source')
@@ -283,10 +284,7 @@ class Movement:
             Compute the SVT using trajectories of this many consecutive frames.
             Defaults to 5.
         '''
-        markers = [c for c in self.df.columns
-                   if c.startswith('marker')
-                   and c[-1] in 'xyz'
-                   and self.df[c].count()]
+        markers = [c for c in self.df.columns if re.match(r'^marker.*-[xyz]$', c)]
 
         odf = self.df[markers]
         num_frames, num_markers = odf.shape
@@ -299,7 +297,7 @@ class Movement:
         # closest non-dropout frame. we want the smoothed data to obey a
         # nearly-linear interpolation close to observed frames, but far from
         # those frames we don't have much prior knowledge.
-        linear = odf.interpolate().fillna(method='ffill').fillna(method='bfill')
+        linear = odf.interpolate().ffill().bfill()
         weights = pd.DataFrame(np.zeros_like(odf), index=odf.index, columns=odf.columns)
         for c in markers:
             _, closest = self._closest(self.df[c])
@@ -334,7 +332,7 @@ class Movement:
             s = np.clip(s - threshold, 0, np.inf)
             x = pd.DataFrame(np.dot(u, np.dot(np.diag(s), v)))
             rmse = np.sqrt((err * err).mean().mean())
-            if not i % 100:
+            if not i % 10:
                 logging.info('SVT %d: weighted rmse %f using %d singular values',
                              i, rmse, len(s.nonzero()[0]))
             i += 1
