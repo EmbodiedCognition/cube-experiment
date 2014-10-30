@@ -7,7 +7,6 @@ import io
 import numpy as np
 import os
 import pandas as pd
-import re
 import scipy.interpolate
 import scipy.signal
 
@@ -285,7 +284,10 @@ class Movement:
             Compute the SVT using trajectories of this many consecutive frames.
             Defaults to 5.
         '''
-        markers = [c for c in self.df.columns if re.match(r'^marker.*-[xyz]$', c)]
+        markers = [c for c in self.df.columns
+                   if c.startswith('marker')
+                   and c[-1] in 'xyz'
+                   and self.df[c].count()]
 
         odf = self.df[markers]
         num_frames, num_markers = odf.shape
