@@ -248,22 +248,37 @@ class Movement:
         '''Remove our data frame from memory.'''
         self.df = None
 
-    def _replace_dropouts(self, marker, visible_threshold=0.1):
+    def replace_dropouts(self, threshold=0.1):
         '''For a given marker-start column, replace dropout frames with nans.
+
+        This method alters the movement's `df` in-place.
+
+        Parameters
+        ----------
+        threshold : float in (0, 1), optional
+            Drop an entire marker if fewer than this proportion of frames are
+            visible. Defaults to 0.1 (i.e., at least 10% of frames must be
+            visible).
         '''
-        m = self.df.loc[:, marker + '-x':marker + '-c']
-        x, y, z, c = (m[c] for c in m.columns)
-        # "good" frames have reasonable condition numbers and are not located
-        # *exactly* at the origin (which, for the cube experiment, is on the floor).
-        good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
-        # if fewer than the given threshold of this marker's frames are good,
-        # drop the entire marker from the data.
-        if good.sum() / len(good) < visible_threshold:
-            good[:] = False
-        self.df.ix[~good, marker + '-x':marker + '-c'] = float('nan')
+        for column in self.df.columns:
+            if column.startswith('marker') and column.endswith('-c'):
+                start = column[:-1] + 'x'
+                m = self.df.loc[:, start:column]
+                x, y, z, c = (m[c] for c in m.columns)
+                # "good" frames have reasonable condition numbers and are not
+                # located *exactly* at the origin (which, for the cube
+                # experiment, is on the floor).
+                good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
+                # if fewer than the given threshold of this marker's frames are
+                # good, drop the entire marker from the data.
+                if good.sum() / len(good) < threshold:
+                    good[:] = False
+                self.df.ix[~good, start:column] = float('nan')
 
     def svt(self, threshold=1000, min_rmse=0.01, consec_frames=5):
         '''Complete missing marker data using singular value thresholding.
+
+        This method alters the movement's `df` in-place.
 
         Singular value thresholding is described in Cai, Candes, & Shen (2010),
         "A Singular Value Thresholding Algorithm for Matrix Completion" (see
@@ -584,9 +599,6 @@ class Trial(Movement, TimedMixin, TreeMixin):
 
     def load(self):
         self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
-        for column in self.df.columns:
-            if column.endswith('-c'):
-                self._replace_dropouts(column[:-2])
         logging.info('%s: loaded trial %s', self.root, self.df.shape)
         self._debug('loaded data counts')
 
