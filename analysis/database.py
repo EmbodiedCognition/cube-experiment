@@ -421,8 +421,10 @@ class Movement:
         self.df = df
         self._debug('counts after reindexing')
 
-    def lowpass(self, freq=10., order=4):
+    def lowpass(self, freq=10., order=4, only_dropouts=True):
         '''Filter marker data using a butterworth low-pass filter.
+
+        This method alters the data in `df` in-place.
 
         Parameters
         ----------
@@ -431,13 +433,19 @@ class Movement:
             10Hz.
         order : int, optional
             Order of the butterworth filter. Defaults to 4.
+        only_dropouts : bool, optional
+            Replace only data in dropped frames. Defaults to True. Set this to
+            False to replace all data with lowpass-filtered data.
         '''
         nyquist = 1 / (2 * self.approx_delta_t)
         assert 0 < freq < nyquist
         b, a = scipy.signal.butter(order, freq / nyquist)
         for c in self.df.columns:
             if c.startswith('marker') and c[-1] in 'xyz':
-                self.df[c] = scipy.signal.filtfilt(a, b, self.df[c])
+                mask = ~self.df[c[:-1] + 'c'].notnull()
+                if not only_dropouts:
+                    mask[:] = True
+                self.df[c][mask] = scipy.signal.filtfilt(b, a, self.df[c])[mask]
 
     def normalize(self, frame_rate=100., order=1, dropout_decay=0.1, accuracy=1):
         '''Use spline interpolation to resample data on a regular time grid.
