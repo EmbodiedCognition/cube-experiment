@@ -4,6 +4,7 @@ import fnmatch
 import functools
 import gzip
 import io
+import itertools
 import numpy as np
 import os
 import pandas as pd
@@ -319,10 +320,12 @@ class Movement:
         # those frames we don't have much prior knowledge.
         linear = odf.interpolate().ffill().bfill()
         weights = pd.DataFrame(np.zeros_like(odf), index=odf.index, columns=odf.columns)
-        for c in markers:
-            _, closest = self._closest(self.df[c])
-            # discount linear interpolation by e^-1 at 100ms, e^-2 at 200ms, etc.
-            weights[c] = np.exp(-10 * self.approx_delta_t * closest)
+        for m, cs in itertools.groupby(markers, lambda c: c[:-2]):
+            _, closest = self._closest(self.df[m + '-c'])
+            # discount linear interpolation by e^-1 = 0.368 at 200ms,
+            # e^-2 = 0.135 at 400ms, etc.
+            w = np.exp(-5 * self.approx_delta_t * closest)
+            for c in cs: weights[c] = w
 
         # create dataframe of trajectories by reshaping existing data.
         darr = np.asarray(linear)
