@@ -442,10 +442,13 @@ class Movement:
         b, a = scipy.signal.butter(order, freq / nyquist)
         for c in self.df.columns:
             if c.startswith('marker') and c[-1] in 'xyz':
-                mask = ~self.df[c[:-1] + 'c'].notnull()
-                if not only_dropouts:
-                    mask[:] = True
-                self.df[c][mask] = scipy.signal.filtfilt(b, a, self.df[c])[mask]
+                series = self.df[c]
+                smooth = scipy.signal.filtfilt(b, a, series)
+                if only_dropouts:
+                    drops = np.asarray(~self.df[c[:-1] + 'c'].notnull())
+                    series[drops] = smooth[drops]
+                else:
+                    self.df[c] = smooth
 
     def normalize(self, frame_rate=100., order=1, dropout_decay=0.1, accuracy=1):
         '''Use spline interpolation to resample data on a regular time grid.
