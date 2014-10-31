@@ -18,6 +18,8 @@ def main(root, output, frame_rate=100., visibility=0.1, accuracy=0.001, threshol
         t.replace_dropouts(visibility)
         t.reindex(frame_rate)
         t.svt(threshold, accuracy, frames)
+        t.lowpass(lowpass, only_dropouts=True)
+        t.svt(threshold, accuracy, frames)
         t.lowpass(lowpass, only_dropouts=False)
         t.save(t.root.replace(root, output))
 
