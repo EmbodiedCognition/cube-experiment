@@ -131,25 +131,7 @@ class Block(vrlab.Block):
         self.experiment = experiment
         self.effector = effector
 
-        # start out by picking a random set of circuits for our trials.
-        idx = list(range(len(targets.CIRCUITS)))
-        random.shuffle(idx)
-        trials = [targets.CIRCUITS[i] for i in idx[:6]]
-
-        # if we are running a subsequent block for our subject, read the
-        # circuits from the existing trial files in the first block.
-        if os.path.isdir(experiment.output):
-            blocks = os.listdir(experiment.output)
-            if blocks:
-                block0 = os.path.join(experiment.output, blocks[0])
-                if os.path.isdir(block0):
-                    trials = []
-                    for trial in sorted(os.listdir(block0)):
-                        _, _, labels = trial.replace('.csv.gz', '').split('-')
-                        print(trial, labels)
-                        trials.append([int(x, 16) for x in labels])
-
-        self.trials = trials
+        self.trials = targets.CIRCUITS[:6]
 
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
