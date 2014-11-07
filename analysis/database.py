@@ -218,9 +218,8 @@ class Movement:
             If there is more than one match for the marker search string.
         '''
         marker = self.lookup_marker(marker)
-        df = self.df.loc[:, marker + '-x':marker + '-z'].copy()
-        df.columns = list('xyz')
-        return df
+        z = np.asarray(self.df.loc[:, marker + '-x':marker + '-z'])
+        return pd.DataFrame(z, index=self.df.index, columns=list('xyz'))
 
     def distance_to_target(self):
         '''Return the distance to the target cube over time.
