@@ -606,9 +606,9 @@ class Trial(Movement, TimedMixin, TreeMixin):
     @property
     def total_distance(self):
         distances = []
-        x, y, z = next(self.source_trajectory.iterrows())
-        for u, v, w in self.target_trajectory.drop_duplicates().iterrows():
-            distances.append(np.linalg.norm(x - u, y - v, z - w))
+        _, (x, y, z) = next(self.source_trajectory.iterrows())
+        for _, (u, v, w) in self.target_trajectory.drop_duplicates().iterrows():
+            distances.append(np.linalg.norm([x - u, y - v, z - w]))
             x, y, z = u, v, w
         return sum(distances)
 
