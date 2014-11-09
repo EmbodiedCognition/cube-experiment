@@ -16,8 +16,9 @@ def main(root, pattern='*.csv.gz'):
     for s in database.Experiment(root).subjects:
         for i, b in enumerate(s.blocks):
             for j, t in enumerate(b.trials):
-                t.load()
-                data[i][j].append(t.df.index[-1] / t.total_distance)
+                if t.matches(pattern):
+                    t.load()
+                    data[i][j].append(t.df.index[-1] / t.total_distance)
     counts = []
     means = []
     stds = []
