@@ -17,7 +17,7 @@ def main(root, pattern='*.csv.gz'):
         for i, b in enumerate(s.blocks):
             for j, t in enumerate(b.trials):
                 t.load()
-                data[i][j].append(t.df.index[-1])
+                data[i][j].append(t.df.index[-1] / t.total_distance)
     counts = []
     means = []
     stds = []
@@ -33,7 +33,8 @@ def main(root, pattern='*.csv.gz'):
     stds = np.array(stds)
     with plots.plot() as ax:
         ax.plot(xs, means, color='#111111')
-        ax.fill_between(xs, means - stds, means + stds, color='#111111', alpha=0.7, lw=0)
+        ax.fill_between(xs, means - stds, means + stds,
+                        color='#111111', alpha=0.7, lw=0)
         ax.set_xticks(xs)
         ax.set_xticklabels(labels)
 

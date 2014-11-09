@@ -603,6 +603,15 @@ class Trial(Movement, TimedMixin, TreeMixin):
         self.block = self.parent = block
         self.basename = basename
 
+    @property
+    def total_distance(self):
+        distances = []
+        x, y, z = next(self.source_trajectory[:1].iterrows())
+        for u, v, w in self.target_trajectory.drop_duplicates().iterrows():
+            distances.append(np.linalg.norm(x - u, y - v, z - w))
+            x, y, z = u, v, w
+        return sum(distances)
+
     def movement_from(self, source):
         return Movement(self.df[self.df.source == source])
 
