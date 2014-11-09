@@ -27,21 +27,27 @@ def space(show=True):
         lmj.plot.show()
 
 
-def show_cubes(ax, trial):
+def show_cubes(ax, trial, target_num=None):
     '''Plot markers for target cubes on the given axes.
 
     Parameters
     ----------
     ax : plotting axes
     trial : Trial object
+    target_num : int or set of int, optional
+        If given, only show this/these targets.
     '''
-    plotted = set()
+    if target_num is None:
+        target_num = range(12)
+    elif isinstance(target_num, int):
+        target_num = (target_num, )
+    to_plot = set(target_num)
     xs, ys, zs = [], [], []
     for flavor in ('source', 'target'):
         cols = [flavor + suffix for suffix in ('', '-x', '-y', '-z')]
         for _, (n, x, y, z) in trial.df[cols].drop_duplicates().iterrows():
-            if n not in plotted:
-                plotted.add(n)
+            if n in to_plot:
+                to_plot.remove(n)
                 xs.append(x)
                 ys.append(y)
                 zs.append(z)
