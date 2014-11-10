@@ -1,36 +1,31 @@
 import climate
 import collections
-import hashlib
 import lmj.plot
 import numpy as np
-import os
-import pickle
 
 import database
 import plots
 
+
+@database.pickled
+def durations(root, pattern):
+    data = collections.defaultdict(lambda: collections.defaultdict(list))
+    for s in database.Experiment(root).subjects:
+        for i, b in enumerate(s.blocks):
+            for j, t in enumerate(b.trials):
+                if t.matches(pattern):
+                    t.load()
+                    data[i][j].append(t.df.index[-1] / t.total_distance)
+    for i in data:
+        data[i] = dict(data[i])
+    return dict(data)
+
+
 @climate.annotate(
     root='load experiment data from this directory',
-    pattern=('plot data from files matching this pattern', 'option'),
-)
+    pattern=('plot data from files matching this pattern', 'option'))
 def main(root, pattern='*.csv.gz'):
-    tmpfile = 'plot-trial-durations-{}.pkl'.format(
-        hashlib.md5((root + pattern).encode('utf8')).hexdigest())
-    if os.path.exists(tmpfile):
-        with open(tmpfile, 'rb') as handle:
-            data = pickle.load(handle)
-    else:
-        data = collections.defaultdict(lambda: collections.defaultdict(list))
-        for s in database.Experiment(root).subjects:
-            for i, b in enumerate(s.blocks):
-                for j, t in enumerate(b.trials):
-                    if t.matches(pattern):
-                        t.load()
-                        data[i][j].append(t.df.index[-1] / t.total_distance)
-        for i in data:
-            data[i] = dict(data[i])
-        with open(tmpfile, 'wb') as handle:
-            pickle.dump(dict(data), handle)
+    data = durations(root, pattern)
     labels = []
     with lmj.plot.with_axes(spines=True) as ax:
         t = 0
