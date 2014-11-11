@@ -6,6 +6,7 @@ import gzip
 import hashlib
 import io
 import itertools
+import multiprocessing as mp
 import numpy as np
 import os
 import pandas as pd
@@ -99,6 +100,16 @@ class TreeMixin:
         return any(c.matches(pattern) for c in self.children)
 
 
+def _load_trials(inq, outq):
+    '''Load trials from the in-queue and put them on the out-queue.'''
+    while True:
+        t = inq.get()
+        if t is None:
+            break
+        t.load()
+        outq.put(t)
+
+
 class Experiment:
     '''Encapsulates all data gathered from the cube poking experiment.
 
@@ -119,10 +130,20 @@ class Experiment:
             yield from s.trials
 
     def trials_matching(self, pattern):
+        inq = mp.Queue()
+        outq = mp.Queue()
+        workers = [mp.Process(target=_load_trials, args=(inq, outq))
+                   for _ in range(mp.cpu_count())]
+        [w.start() for w in workers]
+        count = 0
         for t in self.trials:
             if t.matches(pattern):
-                t.load()
-                yield t
+                inq.put(t)
+                count += 1
+        [inq.put(None) for _ in workers]
+        for _ in range(count):
+            yield outq.get()
+        [w.join() for w in workers]
 
     def load(self, pattern):
         for s in self.subjects:
