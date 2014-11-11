@@ -17,7 +17,7 @@ logging = climate.get_logger('source')
 
 
 def pickled(f, cache='pickles'):
-    '''Decorator for functions with on-disk cached results.
+    '''Decorator for caching expensive function results in files on disk.
 
     This decorator can be used on functions that compute something expensive
     (e.g., loading all of the experiment data and converting it to some scalar
@@ -38,7 +38,6 @@ def pickled(f, cache='pickles'):
         A function to wrap.
     cache : str
         Directory location for storing cached results.
-
     '''
     if not os.path.isdir(cache):
         os.makedirs(cache)
@@ -58,6 +57,45 @@ def pickled(f, cache='pickles'):
             pickle.dump(result, handle)
         return result
     return wrapper
+
+
+class TimedMixin:
+    '''This mixin is for handling filenames that start with timestamps.
+    '''
+
+    FORMAT = '%Y%m%d%H%M%S'
+
+    @property
+    def stamp(self):
+        return datetime.datetime.strptime(
+            self.basename.split('-')[0], TimedMixin.FORMAT)
+
+    @property
+    def key(self):
+        return os.path.splitext(self.basename)[0].split('-', 1)[1]
+
+
+class TreeMixin:
+    '''This class helps navigate file trees.
+
+    It's written for data stored as a tree of directories containing data at the
+    leaves. Relies on the following attributes being present:
+
+    Attributes
+    ----------
+    parent : any
+        Follow this to navigate up in the tree.
+    children : list
+        Follow these to navigate down in the tree.
+    '''
+
+    @property
+    def root(self):
+        return os.path.join(self.parent.root, self.basename)
+
+    @functools.lru_cache(maxsize=100)
+    def matches(self, pattern):
+        return any(c.matches(pattern) for c in self.children)
 
 
 class Experiment:
@@ -89,29 +127,6 @@ class Experiment:
         for s in self.subjects:
             if s.matches(pattern):
                 s.load(pattern)
-
-
-class TimedMixin:
-    TIMESTAMP_FORMAT = '%Y%m%d%H%M%S'
-
-    @property
-    def stamp(self):
-        return datetime.datetime.strptime(
-            self.basename.split('-')[0], TimedMixin.TIMESTAMP_FORMAT)
-
-    @property
-    def key(self):
-        return os.path.splitext(self.basename)[0].split('-')[1]
-
-
-class TreeMixin:
-    @property
-    def root(self):
-        return os.path.join(self.parent.root, self.basename)
-
-    @functools.lru_cache(maxsize=100)
-    def matches(self, pattern):
-        return any(c.matches(pattern) for c in self.children)
 
 
 class Subject(TimedMixin, TreeMixin):
