@@ -73,7 +73,7 @@ class TimedMixin:
 
     @property
     def key(self):
-        return os.path.splitext(self.basename)[0].split('-', 1)[1]
+        return self.basename.split('.')[0].split('-', 1)[1]
 
 
 class TreeMixin:
@@ -701,7 +701,11 @@ class Trial(Movement, TimedMixin, TreeMixin):
 
     def load(self):
         self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
-        logging.info('%s: loaded trial %s', self.root, self.df.shape)
+        logging.info('%s %s %s: loaded trial %s',
+                     self.parent.parent.key,
+                     self.parent.key,
+                     self.key,
+                     self.df.shape)
         self._debug('loaded data counts')
 
     def save(self, path):
