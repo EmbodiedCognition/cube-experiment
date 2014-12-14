@@ -20,7 +20,7 @@ import suit
 import targets
 
 # module constants
-GAP_MINUTES = 7
+GAP_MINUTES = 50
 TIMESTAMP_FORMAT = '%Y%m%d%H%M%S'
 BASE_PATH = 'C:\\Documents and Settings\\vrlab\\Desktop\\target-data'
 
