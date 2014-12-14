@@ -158,6 +158,7 @@ class Block(vrlab.Block):
         yield viztask.waitKeyDown(' ')
 
     def teardown(self):
+        vrlab.sounds.gong.play()
         self.experiment.prox.clearTargets()
 
     def generate_trials(self):
