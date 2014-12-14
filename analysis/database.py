@@ -3,15 +3,111 @@ import datetime
 import fnmatch
 import functools
 import gzip
+import hashlib
 import io
 import itertools
+import multiprocessing as mp
 import numpy as np
 import os
 import pandas as pd
+import pickle
+import re
 import scipy.interpolate
 import scipy.signal
 
 logging = climate.get_logger('source')
+
+
+def pickled(f, cache='pickles'):
+    '''Decorator for caching expensive function results in files on disk.
+
+    This decorator can be used on functions that compute something expensive
+    (e.g., loading all of the experiment data and converting it to some scalar
+    values for making plots).
+
+    When applied, the wrapped function will be called only if a pickle does not
+    exist for a previous call to the function with the same arguments. If a
+    pickle does exist, its contents will be loaded and returned instead of
+    calling the wrapped function. If a pickle does not exist, the wrapped
+    function will be called and a copy of its results will be written to a
+    pickle before being returned.
+
+    Pickle files must be removed out-of-band.
+
+    Parameters
+    ----------
+    f : callable
+        A function to wrap.
+    cache : str
+        Directory location for storing cached results.
+    '''
+    if not os.path.isdir(cache):
+        os.makedirs(cache)
+    def wrapper(*args, **kwargs):
+        h = hashlib.md5()
+        for a in args:
+            h.update(str(a).encode('utf8'))
+        for k in sorted(kwargs):
+            h.update('{}={}'.format(k, kwargs[k]).encode('utf8'))
+        tmpfile = os.path.join(cache, '{}-{}.pkl.gz'.format(
+            f.__name__, h.hexdigest()))
+        if os.path.exists(tmpfile):
+            with gzip.open(tmpfile, 'rb') as handle:
+                return pickle.load(handle)
+        result = f(*args, **kwargs)
+        with gzip.open(tmpfile, 'wb') as handle:
+            pickle.dump(result, handle)
+        return result
+    return wrapper
+
+
+class TimedMixin:
+    '''This mixin is for handling filenames that start with timestamps.
+    '''
+
+    FORMAT = '%Y%m%d%H%M%S'
+
+    @property
+    def stamp(self):
+        return datetime.datetime.strptime(
+            self.basename.split('-')[0], TimedMixin.FORMAT)
+
+    @property
+    def key(self):
+        return self.basename.split('.')[0].split('-', 1)[1]
+
+
+class TreeMixin:
+    '''This class helps navigate file trees.
+
+    It's written for data stored as a tree of directories containing data at the
+    leaves. Relies on the following attributes being present:
+
+    Attributes
+    ----------
+    parent : any
+        Follow this to navigate up in the tree.
+    children : list
+        Follow these to navigate down in the tree.
+    '''
+
+    @property
+    def root(self):
+        return os.path.join(self.parent.root, self.basename)
+
+    @functools.lru_cache(maxsize=100)
+    def matches(self, pattern):
+        return any(c.matches(pattern) for c in self.children)
+
+
+def _load_trials(inq, outq):
+    '''Load trials from the in-queue and put them on the out-queue.'''
+    while True:
+        t = inq.get()
+        if t is None:
+            break
+        t.load()
+        outq.put(t)
 
 
 class Experiment:
@@ -34,38 +130,25 @@ class Experiment:
             yield from s.trials
 
     def trials_matching(self, pattern):
+        inq = mp.Queue()
+        outq = mp.Queue()
+        workers = [mp.Process(target=_load_trials, args=(inq, outq))
+                   for _ in range(mp.cpu_count())]
+        [w.start() for w in workers]
+        count = 0
         for t in self.trials:
             if t.matches(pattern):
-                t.load()
-                yield t
+                inq.put(t)
+                count += 1
+        [inq.put(None) for _ in workers]
+        for _ in range(count):
+            yield outq.get()
+        [w.join() for w in workers]
 
     def load(self, pattern):
         for s in self.subjects:
             if s.matches(pattern):
                 s.load(pattern)
-
-
-class TimedMixin:
-    TIMESTAMP_FORMAT = '%Y%m%d%H%M%S'
-
-    @property
-    def stamp(self):
-        return datetime.datetime.strptime(
-            self.basename.split('-')[0], TimedMixin.TIMESTAMP_FORMAT)
-
-    @property
-    def key(self):
-        return os.path.splitext(self.basename)[0].split('-')[1]
-
-
-class TreeMixin:
-    @property
-    def root(self):
-        return os.path.join(self.parent.root, self.basename)
-
-    @functools.lru_cache(maxsize=100)
-    def matches(self, pattern):
-        return any(c.matches(pattern) for c in self.children)
 
 
 class Subject(TimedMixin, TreeMixin):
@@ -86,9 +169,11 @@ class Subject(TimedMixin, TreeMixin):
     def __init__(self, experiment, basename):
         self.experiment = self.parent = experiment
         self.basename = basename
-        self.blocks = self.children = [Block(self, f) for f in sorted(os.listdir(self.root))]
+        self.blocks = self.children = [
+            Block(self, f) for f in sorted(os.listdir(self.root))]
         logging.info('subject %s: %d blocks, %d trials',
-                     self.key, len(self.blocks), sum(len(b.trials) for b in self.blocks))
+                     self.key, len(self.blocks),
+                     sum(len(b.trials) for b in self.blocks))
         self.df = None
 
     @property
@@ -125,7 +210,12 @@ class Block(TimedMixin, TreeMixin):
     def __init__(self, subject, basename):
         self.subject = self.parent = subject
         self.basename = basename
-        self.trials = self.children = [Trial(self, f) for f in sorted(os.listdir(self.root))]
+        self.trials = self.children = [
+            Trial(self, f) for f in sorted(os.listdir(self.root))]
+
+    @property
+    def block_no(self):
+        return int(re.match(r'-block(\d\d)', self.root).group(1))
 
     def load(self, pattern):
         for t in self.trials:
@@ -218,9 +308,8 @@ class Movement:
             If there is more than one match for the marker search string.
         '''
         marker = self.lookup_marker(marker)
-        df = self.df.loc[:, marker + '-x':marker + '-z'].copy()
-        df.columns = list('xyz')
-        return df
+        z = np.asarray(self.df.loc[:, marker + '-x':marker + '-z'])
+        return pd.DataFrame(z, index=self.df.index, columns=list('xyz'))
 
     def distance_to_target(self):
         '''Return the distance to the target cube over time.
@@ -604,6 +693,23 @@ class Trial(Movement, TimedMixin, TreeMixin):
         self.block = self.parent = block
         self.basename = basename
 
+    @property
+    def trial_no(self):
+        return int(re.match(r'-trial(\d\d)-', self.root).group(1))
+
+    @property
+    def block_no(self):
+        return self.block.block_no
+
+    @property
+    def total_distance(self):
+        distances = []
+        _, (x, y, z) = next(self.source_trajectory.iterrows())
+        for _, (u, v, w) in self.target_trajectory.drop_duplicates().iterrows():
+            distances.append(np.linalg.norm([x - u, y - v, z - w]))
+            x, y, z = u, v, w
+        return sum(distances)
+
     def movement_from(self, source):
         return Movement(self.df[self.df.source == source])
 
@@ -616,7 +722,11 @@ class Trial(Movement, TimedMixin, TreeMixin):
 
     def load(self):
         self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
-        logging.info('%s: loaded trial %s', self.root, self.df.shape)
+        logging.info('%s %s %s: loaded trial %s',
+                     self.parent.parent.key,
+                     self.parent.key,
+                     self.key,
+                     self.df.shape)
         self._debug('loaded data counts')
 
     def save(self, path):
