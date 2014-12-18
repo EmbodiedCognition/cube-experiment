@@ -128,6 +128,15 @@ def count_transitions(circuits):
 
 
 def score_circuits(circuits, samples):
+    '''Score a set of circuits for overlappiness.
+
+    The score is a combination of the mean overlappiness of random subsets of
+    circuits, combined with an exponentially weighted sum of how non-uniform the
+    transitions are in the the overall set of circuits.
+    '''
+    # first measure the amount of expected overlap from random subsets of size
+    # TRIALS drawn from this set of circuits. the idea here is to penalize a set
+    # of circuits that cannot be sampled randomly with low transition overlap.
     idx = list(range(len(circuits)))
     scores = []
     for _ in range(samples):
@@ -136,11 +145,14 @@ def score_circuits(circuits, samples):
         scores.append((c == 0).sum() - TARGETS)
     #print(min(scores), np.mean(scores), max(scores))
     score = np.mean(scores) + 2 * np.std(scores)
+
+    # now measure the overall set of circuits. transitions that are observed
+    # only once are penalized a lot, while transitions that happen the expected
+    # number of times are penalized just a little.
     count = count_transitions(circuits)
-    weight = 1
-    for i in range(len(circuits) // TARGETS, -1, -1):
-        score += weight * (count == i).sum()
-        weight *= 3
+    expect = len(circuits) / TARGETS
+    for i in range(int(count.max())):
+        score += (2 ** abs(expect - i)) * (count == i).sum()
     return score
 
 
