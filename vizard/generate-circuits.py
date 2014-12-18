@@ -201,9 +201,18 @@ def show(c):
     plt.show()
 
 
+STARTER = (
+    (10,  0,  1,  3,  8,  4, 11,  7,  9,  6,  5,  2),
+    ( 7,  1,  0, 11,  9,  2,  8,  3,  6,  4, 10,  5),
+    ( 3,  0,  8, 11,  5, 10,  6,  1,  4,  2,  9,  7),
+    (11,  8,  7,  3,  4,  6,  9,  5,  0,  2,  1, 10),
+    ( 4,  7,  8,  5,  6,  0,  3,  1,  9, 10,  2, 11),
+    (10,  3,  9,  1,  2,  4,  5,  7, 11,  0,  6,  8),
+)
+
 def main(n=None):
     if n:
-        return show(generate_circuits(int(n)))
+        return show(generate_circuits(int(n), STARTER))
     for t in GOOD_EXAMPLES:
         show(t)
 
