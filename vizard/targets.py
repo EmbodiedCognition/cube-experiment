@@ -42,6 +42,7 @@ class Target:
 
 
 NUMBERED = (
+    # dirs:   "right" "up" "forward"
     Target( 0, -1.82, 0.05, -1.96),
     Target( 1, -1.70, 1.82,  2.18),
     Target( 2, -0.02, 0.05,  1.78),
