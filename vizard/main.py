@@ -20,6 +20,7 @@ import suit
 import targets
 
 # module constants
+GAP_MINUTES = 50
 TIMESTAMP_FORMAT = '%Y%m%d%H%M%S'
 BASE_PATH = 'C:\\Documents and Settings\\vrlab\\Desktop\\target-data'
 
@@ -157,6 +158,7 @@ class Block(vrlab.Block):
         yield viztask.waitKeyDown(' ')
 
     def teardown(self):
+        vrlab.sounds.gong.play()
         self.experiment.prox.clearTargets()
 
     def generate_trials(self):
@@ -191,7 +193,7 @@ class Experiment(vrlab.Experiment):
 
     def setup(self):
         # set up a folder to store data for a subject.
-        dirname = self.find_output(threshold_min=10)
+        dirname = self.find_output(threshold_min=GAP_MINUTES)
         self.output = os.path.join(BASE_PATH, dirname)
         logging.info('storing output in %s', self.output)
 
