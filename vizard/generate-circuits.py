@@ -160,37 +160,36 @@ def generate_circuits(n, init=None):
     print('Generating {} circuits. Press Ctrl-C to stop.'.format(n))
     idx = list(range(TARGETS))
     circuits = np.zeros((n, TARGETS), int)
-    s = 0
+    start = 0
     if init is not None:
-        s = len(init)
-        m = min(n, s)
-        circuits[:m] = init[:m]
-    for i in range(s, n):
+        start = len(init)
+        circuits[:min(n, start)] = init[:min(n, start)]
+    for i in range(start, n):
         np.random.shuffle(idx)
         circuits[i] = list(idx)
-    best = None
-    scor = 1e100
-    t = when = 0
+    best_circuits = None
+    best_score = 1e100
+    best_time = time = 0
     rng = np.random.randint
-    while t - when < 1000:
-        c = circuits[t % n]
+    while time - best_time < 1000:
+        c = circuits[start + time % (n - start)]
         i, j = rng(TARGETS, size=2)
         while i == j:
             i, j = rng(TARGETS, size=2)
         c[i], c[j] = c[j], c[i]
         try:
-            s = score_circuits(circuits, 500)
+            score = score_circuits(circuits, 500)
         except KeyboardInterrupt:
             break
-        if s < scor:
-            best = circuits.copy()
-            scor = s
-            when = t
-            print('{:5d} {:.2f}'.format(t, scor))
+        if score < best_score:
+            best_circuits = circuits.copy()
+            best_score = score
+            best_time = time
+            print('{:5d} {:.2f}'.format(time, score))
         else:
             c[i], c[j] = c[j], c[i]
-        t += 1
-    return best
+        time += 1
+    return best_circuits
 
 
 def show(c):
