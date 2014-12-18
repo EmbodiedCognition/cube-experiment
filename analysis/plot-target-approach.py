@@ -9,7 +9,7 @@ import plots
 
 
 @database.pickled
-def process_data(root, pattern, markers, target_num):
+def target_approaches(root, pattern, markers, target_num):
     data = {(m, s): [] for m in markers.split() for s in range(12)}
     targets = None
     for trial in database.Experiment(root).trials_matching(pattern):
