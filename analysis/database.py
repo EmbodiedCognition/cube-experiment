@@ -711,10 +711,43 @@ class Trial(Movement, TimedMixin, TreeMixin):
         return sum(distances)
 
     def movement_from(self, source):
+        '''Return frames that entail movement away from a particular cube.
+
+        Returns
+        -------
+        Movement :
+            A movement object that only include specific frames of data.
+        '''
         return Movement(self.df[self.df.source == source])
 
     def movement_to(self, target):
+        '''Return frames that entail movement towards a particular cube.
+
+        Returns
+        -------
+        Movement :
+            A movement object that only include specific frames of data.
+        '''
         return Movement(self.df[self.df.target == target])
+
+    def movement_near(self, target, frames=100):
+        '''Return frames that entail movement near a particular cube.
+
+        Returns
+        -------
+        Movement :
+            A movement object that only include specific frames of data.
+        '''
+        mask = (self.df.target == target).shift(frames).fillna(False)
+        n = mask.sum()
+        if n > 2 * frames:
+            # this bizarre expression sets elements of the mask to False,
+            # starting from the beginning, so that the total number of True
+            # elements in the mask equals 2 * frames. the mask[mask] part gets
+            # just the subseries that's True, then mask[foo.index] = False
+            # isolates elements in the mask by index and sets them to False.
+            mask[mask[mask][:n - 2 * frames].index] = False
+        return Movement(self.df[mask])
 
     @functools.lru_cache(maxsize=100)
     def matches(self, pattern):
