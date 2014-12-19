@@ -1,6 +1,20 @@
 import climate
+import multiprocessing as mp
 
 import database
+
+
+def smooth(args):
+    trial, root, output, frame_rate, visibility, accuracy, threshold, frames, lowpass = args
+    trial.replace_dropouts(visibility)
+    trial.reindex(frame_rate)
+    trial.svt(threshold, 4 * accuracy, frames)
+    trial.lowpass(lowpass, only_dropouts=True)
+    trial.svt(threshold, 2 * accuracy, frames)
+    trial.lowpass(lowpass, only_dropouts=True)
+    trial.svt(threshold, accuracy, frames)
+    trial.lowpass(lowpass, only_dropouts=False)
+    trial.save(trial.root.replace(root, output))
 
 
 @climate.annotate(
@@ -14,14 +28,9 @@ import database
     lowpass=('lowpass filter at N Hz after SVT', 'option', None, float),
 )
 def main(root, output, frame_rate=100., visibility=0.1, accuracy=0.001, threshold=100, frames=5, lowpass=10.):
-    for t in database.Experiment(root).trials_matching('*'):
-        t.replace_dropouts(visibility)
-        t.reindex(frame_rate)
-        t.svt(threshold, accuracy, frames)
-        t.lowpass(lowpass, only_dropouts=True)
-        t.svt(threshold, accuracy, frames)
-        t.lowpass(lowpass, only_dropouts=False)
-        t.save(t.root.replace(root, output))
+    args = root, output, frame_rate, visibility, accuracy, threshold, frames, lowpass
+    trials = database.Experiment(root).trials_matching('*')
+    mp.Pool().map(smooth, ((t, ) + args for t in trials))
 
 
 if __name__ == '__main__':
