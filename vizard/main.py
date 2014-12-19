@@ -132,7 +132,9 @@ class Block(vrlab.Block):
         self.experiment = experiment
         self.effector = effector
 
-        self.trials = targets.CIRCUITS[:6]
+        idx = list(range(6))
+        random.shuffle(idx)
+        self.trials = [targets.CIRCUITS[i] for i in idx]
 
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         self.output = os.path.join(
