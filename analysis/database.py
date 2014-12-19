@@ -737,6 +737,11 @@ class Trial(Movement, TimedMixin, TreeMixin):
         self.df.to_csv(s, index_label='time')
         with gzip.open(path, 'w') as handle:
             handle.write(s.getvalue().encode('utf-8'))
+        logging.info('%s %s %s: saved to %s',
+                     self.parent.parent.key,
+                     self.parent.key,
+                     self.key,
+                     path)
 
     def _debug(self, label):
         logging.debug(label)
