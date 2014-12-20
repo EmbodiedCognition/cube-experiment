@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import climate
 import itertools
 import lmj.plot
