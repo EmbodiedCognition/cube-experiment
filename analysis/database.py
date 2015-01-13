@@ -277,8 +277,8 @@ class Movement:
         ValueError :
             If there is more than one match for the search string.
         '''
-        if isinstance(marker, int):
-            marker = 'marker{:02d}'.format(marker)
+        if not isinstance(marker, str):
+            marker = 'marker{:02d}'.format(int(marker))
         matches = [c for c in self.df.columns if marker in c and c.endswith('-x')]
         if len(matches) == 0:
             raise KeyError(marker)
