@@ -141,7 +141,8 @@ class Experiment:
                 inq.put(t)
                 count += 1
         [inq.put(None) for _ in workers]
-        for _ in range(count):
+        while count:
+            count -= 1
             yield outq.get()
         [w.join() for w in workers]
 
