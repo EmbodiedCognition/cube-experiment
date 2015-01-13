@@ -690,7 +690,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
 
     def __init__(self, block, basename):
         super().__init__()
-        self.block = self.parent = block
+        self.parent = block
         self.basename = basename
 
     @property
@@ -699,7 +699,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
 
     @property
     def block_no(self):
-        return self.block.block_no
+        return self.parent.block_no
 
     @property
     def total_distance(self):
