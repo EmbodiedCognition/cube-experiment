@@ -11,11 +11,11 @@ def smooth(args):
     trial.replace_dropouts(visibility)
     trial.reindex(frame_rate)
     trial.svt(threshold, 4 * accuracy, frames)
-    trial.lowpass(lowpass, only_dropouts=True)
+    trial.lowpass(1 * lowpass, only_dropouts=True)
     trial.svt(threshold, 2 * accuracy, frames)
-    trial.lowpass(lowpass, only_dropouts=True)
-    trial.svt(threshold, accuracy, frames)
-    trial.lowpass(lowpass, only_dropouts=False)
+    trial.lowpass(2 * lowpass, only_dropouts=True)
+    trial.svt(threshold, 1 * accuracy, frames)
+    trial.lowpass(4 * lowpass, only_dropouts=False)
     trial.save(trial.root.replace(root, output))
 
 
