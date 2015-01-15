@@ -651,6 +651,55 @@ class Movement:
             list(map(min, closest_l[1:], reversed(closest_r[1:]))),
             index=series.index)
 
+    def drop_fiddly_target_frames(self, enter_threshold=0.25, exit_threshold=0.35):
+        '''This code attempts to regularize the moment of target contact.
+
+        Sometimes (and particularly for some targets, like #1) the phasespace
+        system was not able to record the relevant marker at the moment of
+        crossing the target-is-touched event sphere. In these cases, subjects
+        were instructed to sort of wave their hand around the target until the
+        system detected the touch event. This process occasionally took many
+        seconds, so we'd like to exclude this fiddly data from our movements if
+        possible.
+
+        One way to do this would be based on the mean/stdev of the trial
+        durations, but I haven't found a strong enough pattern there to be
+        reliable. Instead, here we use the smoothed movement data and some
+        heuristics about what is likely to constitute a target-touch event to
+        exclude these "fiddly" frames from the end of a movement toward a
+        particular target.
+
+        Parameters
+        ----------
+        enter_threshold : float, optional
+            Distance (in meters) from target below which a target can be
+            considered to be touched. Defaults to a rather large-seeming 25cm,
+            but the vizard/phasespace setup was triggered at a nominal distance
+            of 0.2m, so this seems somewhat reasonable.
+        exit_threshold : float, optional
+            Distance (in meters) from target above which a subject is considered
+            to be no longer touching the target. Defaults to 0.35.
+
+        Returns
+        -------
+        percent_dropped : float
+            Percent of frames in this trial that were dropped.
+
+        '''
+        dist = self.distance_to_target()
+        rate = pd.rolling_mean(dist.diff(2).shift(-1).fillna(0), 4).shift(-2).fillna(0)
+        minima = (dist < enter_threshold) & (rate > 0)
+        stayings = dist < exit_threshold
+        for i in minima[minima].index:
+            rest = stayings[i:]
+            if sum(rest) > 0.7 * len(rest) and len(rest) > 0.5 / self.approx_delta_t:
+                self.df = self.df.drop(rest.index)
+                percent_dropped = 100 * len(rest) / len(dist)
+                logging.info('dropping %d fiddly frames -- %.1f %% of trial',
+                             len(rest), percent_dropped)
+                return percent_dropped
+        return 0
+
 
 class Trial(Movement, TimedMixin, TreeMixin):
     '''Encapsulates data from a single trial (from one block of one subject).
