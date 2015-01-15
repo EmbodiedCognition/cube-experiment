@@ -368,7 +368,7 @@ class Movement:
                     good[:] = False
                 self.df.ix[~good, start:column] = float('nan')
 
-    def svt(self, threshold=1000, min_rmse=0.01, consec_frames=5):
+    def svt(self, threshold=100, min_rmse=0.01, consec_frames=3, log_every=0):
         '''Complete missing marker data using singular value thresholding.
 
         This method alters the movement's `df` in-place.
@@ -382,15 +382,16 @@ class Movement:
         Parameters
         ----------
         threshold : int, optional
-            Threshold for singular values. Defaults to 1000.
-
+            Threshold for singular values. Defaults to 100.
         min_rmse : float, optional
             Halt the reconstruction process when reconstructed data is below
             this RMS error compared with measured data. Defaults to 0.01.
-
         consec_frames : int, optional
             Compute the SVT using trajectories of this many consecutive frames.
-            Defaults to 5.
+            Defaults to 3.
+        log_every : int, optional
+            Number of SVT iterations between logging output. Defaults to 0,
+            which only logs output at the start and finish of the SVT process.
         '''
         markers = [c for c in self.df.columns
                    if c.startswith('marker')
@@ -400,9 +401,9 @@ class Movement:
         odf = self.df[markers]
         num_frames, num_markers = odf.shape
         num_entries = num_frames * num_markers
-        filled_ratio = odf.count().sum() / num_entries
+        filled_ratio = odf.count().sum() / max(1e-3, num_entries)
 
-        # learning rate heuristic, see section 5.1.2 for details.
+        # learning rate heuristic, see paper section 5.1.2 for details.
         learning_rate = 1.2 / filled_ratio
 
         # interpolate linearly and compute weights based on inverse distance to
@@ -411,12 +412,22 @@ class Movement:
         # those frames we don't have much prior knowledge.
         linear = odf.interpolate().ffill().bfill()
         weights = pd.DataFrame(np.zeros_like(odf), index=odf.index, columns=odf.columns)
-        for m, cs in itertools.groupby(markers, lambda c: c[:-2]):
-            _, closest = self._closest(self.df[m + '-c'])
+        for marker, columns in itertools.groupby(markers, lambda c: c[:-2]):
+            _, closest = self._closest(self.df[marker + '-c'])
+
             # discount linear interpolation by e^-1 = 0.368 at 200ms,
             # e^-2 = 0.135 at 400ms, etc.
             w = np.exp(-5 * self.approx_delta_t * closest)
-            for c in cs: weights[c] = w
+
+            # discount finger markers; the are prone to dropout, and we want
+            # their position to influence the overall posture less than markers
+            # attached to large limbs.
+            if 'fing' in marker:
+                w /= 2
+
+            # set weights for x, y, and z channels of this marker
+            for column in columns:
+                weights[column] = w
 
         # create dataframe of trajectories by reshaping existing data.
         darr = np.asarray(linear)
@@ -428,7 +439,7 @@ class Movement:
             warr = np.vstack([warr, z])
         shape = len(darr) // consec_frames, num_markers * consec_frames
         df = pd.DataFrame(darr.reshape(shape))
-        weights = pd.DataFrame(warr.reshape(shape))
+        wf = pd.DataFrame(warr.reshape(shape))
 
         logging.info('SVT: filling %d x %d, reshaped as %d x %d',
                      num_frames, num_markers, df.shape[0], df.shape[1])
@@ -437,20 +448,22 @@ class Movement:
                      num_entries,
                      100 * filled_ratio)
 
-        x = y = pd.DataFrame(np.zeros_like(df))
-        rmse = min_rmse + 1
-        i = 0
         def log():
             logging.info('SVT %d: weighted rmse %f using %d singular values',
                          i, rmse, len(s.nonzero()[0]))
-        while i < 10000 and rmse > min_rmse:
-            err = weights * (df - x)
+
+        s = None
+        x = y = pd.DataFrame(np.zeros_like(df))
+        rmse = min_rmse + 1
+        i = 0
+        while i < 1000 and rmse > min_rmse:
+            err = wf * (df - x)
             y += learning_rate * err
             u, s, v = np.linalg.svd(y, full_matrices=False)
             s = np.clip(s - threshold, 0, np.inf)
             x = pd.DataFrame(np.dot(u, np.dot(np.diag(s), v)))
             rmse = np.sqrt((err * err).mean().mean())
-            if not i % 10: log()
+            if log_every and i % log_every == 0: log()
             i += 1
         log()
 
