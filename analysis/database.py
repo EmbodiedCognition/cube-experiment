@@ -763,6 +763,14 @@ class Trial(Movement, TimedMixin, TreeMixin):
                      self.df.shape)
         self._debug('loaded data counts')
 
+    def trial_lengths(self):
+        lengths = collections.defaultdict(int)
+        for t in self.df.target.unique():
+            df = self.movement_to(t).df
+            lengths[(df.source.unique()[-1], t)] = len(df)
+        logging.info('trial lengths %s', ','.join(str(lengths[(i, j)]) for i in range(12) for j in range(12)))
+        return lengths
+
     def save(self, path):
         dirname = os.path.dirname(path)
         if not os.path.exists(dirname):
