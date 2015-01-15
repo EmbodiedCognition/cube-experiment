@@ -1,4 +1,5 @@
 import climate
+import collections
 import datetime
 import fnmatch
 import functools
