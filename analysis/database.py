@@ -101,6 +101,9 @@ class TreeMixin:
         return any(c.matches(pattern) for c in self.children)
 
 
+def _load_trial(t):
+    return t.load()
+
 class Experiment:
     '''Encapsulates all data gathered from the cube poking experiment.
 
@@ -128,8 +131,8 @@ class Experiment:
         if not load:
             return matches
         pool = joblib.Parallel(-1)
-        f = joblib.delayed(lambda t: t.load())
-        return pool(f(t) for t in matches)
+        load = joblib.delayed(_load_trial)
+        return pool(load(t) for t in matches)
 
 
 class Subject(TimedMixin, TreeMixin):
