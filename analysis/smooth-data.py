@@ -8,6 +8,7 @@ import database
 
 
 def smooth(args):
+    args.trial.load()
     args.trial.replace_dropouts(args.visibility)
     args.trial.reindex(args.frame_rate)
     args.trial.svt(args.threshold, 4 * args.accuracy, args.frames)
@@ -33,7 +34,7 @@ Args = collections.namedtuple('Args', 'trial root output frame_rate visibility a
 )
 def main(root, output, frame_rate=100., visibility=0.1, accuracy=0.001, threshold=100, frames=3, lowpass=5.):
     args = root, output, frame_rate, visibility, accuracy, threshold, frames, lowpass
-    trials = database.Experiment(root).trials_matching('*')
+    trials = database.Experiment(root).trials_matching('*', load=False)
     mp.Pool().map(smooth, (Args(t, *args) for t in trials))
 
 
