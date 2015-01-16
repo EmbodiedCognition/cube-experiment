@@ -451,22 +451,21 @@ class Movement:
         for c in cols:
             self.df[c] = df[c]
 
-    def recenter(self, markers):
-        '''Recenter all position data relative to the given set of markers.
+    def recenter(self, cx, cy, cz):
+        '''Recenter all position data relative to the given centers.
 
         This method adds three new columns to the data frame called
         center-{x,y,z}.
 
         Parameters
         ----------
-        markers : sequence of str
-            A set of marker names, relative to which we will recenter our data.
-            Each row of the data in our movement will be recentered to the mean
-            position of the given markers.
+        cx : pd.DataFrame
+            A data frame containing the center of our x values.
+        cy : pd.DataFrame
+            A data frame containing the center of our y values.
+        cz : pd.DataFrame
+            A data frame containing the center of our z values.
         '''
-        cx = self.df[['{}-x'.format(m) for m in markers]].mean(axis=1)
-        cy = self.df[['{}-y'.format(m) for m in markers]].mean(axis=1)
-        cz = self.df[['{}-z'.format(m) for m in markers]].mean(axis=1)
         for c in self.df.columns:
             if c.endswith('-x'): self.df[c] -= cx
             if c.endswith('-y'): self.df[c] -= cy
@@ -474,6 +473,26 @@ class Movement:
         self.df['center-x'] = cx
         self.df['center-y'] = cy
         self.df['center-z'] = cz
+
+    def rotate_z(self, angles):
+        '''Rotate all marker data using the given sequence of matrices.
+
+        This method adds a new column to the data frame called
+        rotation-z.
+
+        Parameters
+        ----------
+        angles : sequence of float
+            A sequence of rotation angles.
+        '''
+        def rotz(theta):
+            ct = np.cos(theta)
+            st = np.sin(theta)
+            return np.array([[ct, -st, 0], [st, ct, 0], [0, 0, 1]])
+        d = np.array(self.df[self.marker_channel_columns])
+        self.df[self.marker_channel_columns] = [
+            np.dot(rotz(a), x.reshape(3, -1)).flatten() for x, a in zip(d, angles)]
+        self.df['marker-rotation-z'] = angles
 
     def add_velocities(self):
         '''Add columns to the data that reflect the instantaneous velocity.'''
@@ -707,6 +726,18 @@ class Movement:
                              len(rest), percent_dropped)
                 return percent_dropped
         return 0
+
+    def make_body_relative(self):
+        '''Translate and rotate marker data so that it's body-relative.
+        '''
+        r_ilium = self.trajectory('r-ilium')
+        l_ilium = self.trajectory('l-ilium')
+        r_hip = self.trajectory('r-hip')
+        l_hip = self.trajectory('l-hip')
+        c = (r_ilium + l_ilium + r_hip + l_hip) / 4
+        self.recenter(c.x, c.y, c.z)
+        r = ((r_hip - r_ilium) + (l_hip - l_ilium)) / 2
+        self.rotate_z(np.arctan2(-r.y, r.x))
 
 
 class Trial(Movement, TimedMixin, TreeMixin):
