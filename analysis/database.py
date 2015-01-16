@@ -230,6 +230,17 @@ class Movement:
     def source_trajectory(self):
         return self.trajectory('source')
 
+    @property
+    def marker_channel_columns(self):
+        return [c for c in self.df.columns
+                if c.startswith('marker') and c[-1] in 'xyz']
+
+    @property
+    def marker_columns(self):
+        return sorted(set(
+            c[:-2] for c in self.df.columns
+            if c.startswith('marker') and c.endswith('-c')))
+
     def lookup_marker(self, marker):
         '''Look up a marker either by index or by name.
 
@@ -365,12 +376,8 @@ class Movement:
             Number of SVT iterations between logging output. Defaults to 0,
             which only logs output at the start and finish of the SVT process.
         '''
-        markers = [c for c in self.df.columns
-                   if c.startswith('marker')
-                   and c[-1] in 'xyz'
-                   and self.df[c].count()]
-
-        odf = self.df[markers]
+        cols = [c for c in self.marker_channel_columns if self.df[c].count()]
+        odf = self.df[cols]
         num_frames, num_markers = odf.shape
         num_entries = num_frames * num_markers
         filled_ratio = odf.count().sum() / max(1e-3, num_entries)
@@ -384,7 +391,7 @@ class Movement:
         # those frames we don't have much prior knowledge.
         linear = odf.interpolate().ffill().bfill()
         weights = pd.DataFrame(np.zeros_like(odf), index=odf.index, columns=odf.columns)
-        for marker, columns in itertools.groupby(markers, lambda c: c[:-2]):
+        for marker, columns in itertools.groupby(cols, lambda c: c[:-2]):
             _, closest = self._closest(self.df[marker + '-c'])
 
             # discount linear interpolation by e^-1 = 0.368 at 200ms,
@@ -441,7 +448,7 @@ class Movement:
 
         x = np.asarray(x).reshape((-1, num_markers))[:num_frames]
         df = pd.DataFrame(x, index=odf.index, columns=odf.columns)
-        for c in markers:
+        for c in cols:
             self.df[c] = df[c]
 
     def recenter(self, markers):
@@ -471,11 +478,10 @@ class Movement:
     def add_velocities(self):
         '''Add columns to the data that reflect the instantaneous velocity.'''
         dt = 2 * self.approx_delta_t
-        for c in self.df.columns:
-            if c.startswith('marker') and c[-1] in 'xyz':
-                ax = c[-1]
-                self.df['{}-v{}'.format(c[:-2], ax)] = pd.rolling_apply(
-                    self.df[c], 3, lambda x: (x[-1] - x[0]) / dt).shift(-1)
+        for c in self.marker_channel_columns:
+            ax = c[-1]
+            self.df['{}-v{}'.format(c[:-2], ax)] = pd.rolling_apply(
+                self.df[c], 3, lambda x: (x[2] - x[0]) / dt).shift(-1).fillna(0)
 
     def reindex(self, frame_rate=100.):
         '''Reindex the data frame to a regularly spaced time grid.
@@ -516,15 +522,14 @@ class Movement:
         nyquist = 1 / (2 * self.approx_delta_t)
         assert 0 < freq < nyquist
         b, a = scipy.signal.butter(order, freq / nyquist)
-        for c in self.df.columns:
-            if c.startswith('marker') and c[-1] in 'xyz':
-                series = self.df[c]
-                smooth = scipy.signal.filtfilt(b, a, series)
-                if only_dropouts:
-                    drops = np.asarray(~self.df[c[:-1] + 'c'].notnull())
-                    series[drops] = smooth[drops]
-                else:
-                    self.df[c] = smooth
+        for c in self.marker_channel_columns:
+            series = self.df[c]
+            smooth = scipy.signal.filtfilt(b, a, series)
+            if only_dropouts:
+                drops = np.asarray(~self.df[c[:-1] + 'c'].notnull())
+                series[drops] = smooth[drops]
+            else:
+                self.df[c] = smooth
 
     def normalize(self, frame_rate=100., order=1, dropout_decay=0.1, accuracy=1):
         '''Use spline interpolation to resample data on a regular time grid.
