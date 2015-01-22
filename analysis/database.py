@@ -233,13 +233,17 @@ class Movement:
     @property
     def marker_channel_columns(self):
         return [c for c in self.df.columns
-                if c.startswith('marker') and c[-1] in 'xyz']
+                if c.startswith('marker') and
+                c[6:8].isdigit() and
+                c[-1] in 'xyz']
 
     @property
     def marker_columns(self):
         return sorted(set(
             c[:-2] for c in self.df.columns
-            if c.startswith('marker') and c.endswith('-c')))
+            if c.startswith('marker') and
+            c[6:8].isdigit() and
+            c[-2:] == '-c'))
 
     def lookup_marker(self, marker):
         '''Look up a marker either by index or by name.
@@ -336,20 +340,30 @@ class Movement:
             visible. Defaults to 0.1 (i.e., at least 10% of frames must be
             visible).
         '''
-        for column in self.df.columns:
-            if column.startswith('marker') and column.endswith('-c'):
-                start = column[:-1] + 'x'
-                m = self.df.loc[:, start:column]
-                x, y, z, c = (m[c] for c in m.columns)
-                # "good" frames have reasonable condition numbers and are not
-                # located *exactly* at the origin (which, for the cube
-                # experiment, is on the floor).
-                good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
-                # if fewer than the given threshold of this marker's frames are
-                # good, drop the entire marker from the data.
-                if good.sum() / len(good) < threshold:
-                    good[:] = False
-                self.df.ix[~good, start:column] = float('nan')
+        for marker in self.df.marker_columns:
+            start = marker + '-x'
+            stop = marker + '-c'
+            m = self.df.loc[:, start:stop]
+            x, y, z, c = (m[c] for c in m.columns)
+            # "good" frames have reasonable condition numbers and are not
+            # located *exactly* at the origin (which, for the cube
+            # experiment, is on the floor).
+            good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
+            # if fewer than the given threshold of this marker's frames are
+            # good, drop the entire marker from the data.
+            if good.sum() / len(good) < threshold:
+                good[:] = False
+            self.df.ix[~good, start:stop] = float('nan')
+
+    def drop_empty_markers(self):
+        '''Drop channels from our data frame that do not contain data.
+        '''
+        empty = []
+        for marker in self.marker_columns:
+            if not self.df[marker + '-c'].count():
+                for channel in 'xyzc':
+                    empty.append('{}-{}'.format(marker, channel))
+        self.df = self.df.drop(empty, axis=1)
 
     def svt(self, threshold=100, min_rmse=0.01, consec_frames=3, log_every=0):
         '''Complete missing marker data using singular value thresholding.
@@ -820,6 +834,18 @@ class Trial(Movement, TimedMixin, TreeMixin):
             # isolates elements in the mask by index and sets them to False.
             mask[mask[mask][:n - 2 * frames].index] = False
         return Movement(self.df[mask])
+
+    def drop_fiddly_target_frames(self, enter_threshold=0.25, exit_threshold=0.35):
+        '''Drop fiddly target frames for all target movements in this trial.
+        '''
+        movements = []
+        for t in range(12):
+            mov = self.movement_to(t)
+            if not 0 < len(mov.df): # < 1000:
+                continue
+            mov.drop_fiddly_target_frames(enter_threshold, exit_threshold)
+            movements.append(mov)
+        self.df = pd.concat(movements)
 
     @functools.lru_cache(maxsize=100)
     def matches(self, pattern):
