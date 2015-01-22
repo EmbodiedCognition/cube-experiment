@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import climate
+import itertools
 import joblib
 import numpy as np
 import os
@@ -27,31 +28,28 @@ def compute(trial, target, goal_markers=('marker13-r-fing-index', 'marker32-t3')
     goal.recenter(tgt.x, tgt.y, tgt.z)
     goal.add_velocities()
 
-    fwd = pd.DataFrame(goal.df[['source', 'target']])
-    inv = pd.DataFrame(goal.df[['source', 'target']])
-    for body_marker in body.marker_columns:
-        for body_channel in 'xyz':
-            bc = '{}-v{}'.format(body_marker, body_channel)
-            bn = 'body-{}-{}'.format(body_marker, body_channel)
-
-            for goal_marker in goal_markers:
-                for goal_channel in 'xyz':
-                    gc = '{}-v{}'.format(goal_marker, goal_channel)
-                    gn = 'goal-{}-{}'.format(goal_marker, goal_channel)
-                    fwd['{}/{}'.format(gn, bn)] = goal.df[gc] / body.df[bc]
-                    inv['{}/{}'.format(bn, gn)] = body.df[bc] / goal.df[gc]
+    for body_marker, body_channel in itertools.product(body.marker_columns, 'xyz'):
+        bn = 'b{}{}'.format(body_marker[6:8], body_channel)
+        bs = body.df['{}-v{}'.format(body_marker, body_channel)]
+        bs[bs == 0] = 1e-8
+        for goal_marker, goal_channel in itertools.product(goal_markers, 'xyz'):
+            gn = 'g{}{}'.format(goal_marker[6:8], goal_channel)
+            gs = goal.df['{}-v{}'.format(goal_marker, goal_channel)]
+            gs[gs == 0] = 1e-8
+            trial.df['jac-fwd-{}/{}'.format(gn, bn)] = gs / bs
+            trial.df['jac-inv-{}/{}'.format(bn, gn)] = bs / gs
 
     r = os.path.join(target, trial.parent.parent.key, trial.parent.key)
     if not os.path.exists(r):
         os.makedirs(r)
 
-    fwd.to_pickle(os.path.join(r, '{}-forward.pkl'.format(trial.key)))
-    inv.to_pickle(os.path.join(r, '{}-inverse.pkl'.format(trial.key)))
+    trial.df.to_pickle(os.path.join(r, '{}.pkl'.format(trial.key)))
+    trial.df.to_csv(os.path.join(r, '{}.csv'.format(trial.key)))
     logging.info('%s %s %s: saved jacobian %s',
                  trial.parent.parent.key,
                  trial.parent.key,
                  trial.key,
-                 fwd.shape)
+                 trial.df.shape)
 
 
 def main(root, target, pattern='*'):
