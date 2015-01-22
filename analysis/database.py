@@ -360,7 +360,7 @@ class Movement:
         '''
         empty = []
         for marker in self.marker_columns:
-            if not self.df[marker + '-c'].count():
+            if self.df[marker + '-c'].count() == 0 and self.df[marker + '-x'].sum() == 0:
                 for channel in 'xyzc':
                     empty.append('{}-{}'.format(marker, channel))
         self.df = self.df.drop(empty, axis=1)
