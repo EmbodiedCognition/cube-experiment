@@ -12,7 +12,7 @@ import database
 logging = climate.get_logger('jacobian')
 
 
-def compute(trial, target, goal_markers=('marker13-r-fing-index', 'marker32-t3')):
+def compute(trial, target, goal_markers=('marker13-r-fing-index', 'marker32-t3', 'marker35-r-ilium')):
     trial.load()
     trial.drop_empty_markers()
     #trial.drop_fiddly_target_frames()
