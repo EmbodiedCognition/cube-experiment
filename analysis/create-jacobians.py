@@ -24,8 +24,7 @@ def compute(trial, target, goal_markers=('marker13-r-fing-index', 'marker32-t3',
 
     goal = database.Trial(trial.parent, trial.basename)
     goal.df = trial.df.copy()
-    tgt = goal.target_trajectory
-    goal.recenter(tgt.x, tgt.y, tgt.z)
+    goal.make_target_relative()
     goal.add_velocities()
 
     for body_marker, body_channel in itertools.product(body.marker_columns, 'xyz'):

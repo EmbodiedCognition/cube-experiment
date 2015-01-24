@@ -759,6 +759,13 @@ class Movement:
         r = ((r_hip - r_ilium) + (l_hip - l_ilium)) / 2
         self.rotate_heading(np.arctan2(-r.z, r.x))
 
+    def make_target_relative(self):
+        '''Translate and rotate marker data so it's relative to the target.
+        '''
+        self.recenter(self.target_trajectory)
+        r = (self.trajectory('r-ilium') + self.trajectory('l-ilium')) / 2
+        self.rotate_heading(np.arctan2(-r.z, r.x))
+
 
 class Trial(Movement, TimedMixin, TreeMixin):
     '''Encapsulates data from a single trial (from one block of one subject).
