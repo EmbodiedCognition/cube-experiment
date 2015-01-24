@@ -465,7 +465,7 @@ class Movement:
         for c in cols:
             self.df[c] = df[c]
 
-    def recenter(self, cx, cy, cz):
+    def recenter(self, center):
         '''Recenter all position data relative to the given centers.
 
         This method adds three new columns to the data frame called
@@ -473,20 +473,17 @@ class Movement:
 
         Parameters
         ----------
-        cx : pd.DataFrame
-            A data frame containing the center of our x values.
-        cy : pd.DataFrame
-            A data frame containing the center of our y values.
-        cz : pd.DataFrame
-            A data frame containing the center of our z values.
+        center : pd.DataFrame
+            A data frame containing the center of our x values. This frame must
+            have 'x', 'y', and 'z' columns.
         '''
         for c in self.df.columns:
-            if c.endswith('-x'): self.df[c] -= cx
-            if c.endswith('-y'): self.df[c] -= cy
-            if c.endswith('-z'): self.df[c] -= cz
-        self.df['center-x'] = cx
-        self.df['center-y'] = cy
-        self.df['center-z'] = cz
+            if c.endswith('-x'): self.df[c] -= center.x
+            if c.endswith('-y'): self.df[c] -= center.y
+            if c.endswith('-z'): self.df[c] -= center.z
+        self.df['center-x'] = center.x
+        self.df['center-y'] = center.y
+        self.df['center-z'] = center.z
 
     def rotate_z(self, angles):
         '''Rotate all marker data using the given sequence of matrices.
@@ -748,8 +745,7 @@ class Movement:
         l_ilium = self.trajectory('l-ilium')
         r_hip = self.trajectory('r-hip')
         l_hip = self.trajectory('l-hip')
-        c = (r_ilium + l_ilium + r_hip + l_hip) / 4
-        self.recenter(c.x, c.y, c.z)
+        self.recenter((r_ilium + l_ilium + r_hip + l_hip) / 4)
         r = ((r_hip - r_ilium) + (l_hip - l_ilium)) / 2
         self.rotate_z(np.arctan2(-r.y, r.x))
 
