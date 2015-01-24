@@ -495,21 +495,15 @@ class Movement:
         angles : sequence of float
             A sequence of rotation angles.
         '''
-        def rotx(theta):
-            ct = np.cos(theta)
-            st = np.sin(theta)
-            return np.array([[1, 0, 0], [0, ct, -st], [0, st, ct]])
         def roty(theta):
             ct = np.cos(theta)
             st = np.sin(theta)
             return np.array([[ct, 0, st], [0, 1, 0], [-st, 0, ct]])
-        def rotz(theta):
-            ct = np.cos(theta)
-            st = np.sin(theta)
-            return np.array([[ct, -st, 0], [st, ct, 0], [0, 0, 1]])
         rots = [roty(a) for a in angles]
         for m in self.marker_columns:
-            x, y, z = np.array([np.dot(r, x) for r, x in zip(rots, np.array(self.trajectory(m)))]).T
+            x, y, z = np.array([
+                np.dot(r, x) for r, x in zip(rots, np.array(self.trajectory(m)))
+            ]).T
             self.df[m + '-x'] = x
             self.df[m + '-y'] = y
             self.df[m + '-z'] = z
