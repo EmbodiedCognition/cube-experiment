@@ -748,14 +748,14 @@ class Movement:
         t = self.trajectory
         self.recenter((t('r-hip') + t('r-ilium') + t('l-hip') + t('l-ilium')) / 4)
         r = ((t('r-hip') - t('r-ilium')) + (t('l-hip') - t('l-ilium'))) / 2
-        self.rotate_heading(np.arctan2(-r.z, r.x))
+        self.rotate_heading(np.arctan2(r.z, r.x))
 
     def make_target_relative(self):
         '''Translate and rotate marker data so it's relative to the target.
         '''
         self.recenter(self.target_trajectory)
         r = self.source_trajectory
-        self.rotate_heading(np.arctan2(-r.z, r.x))
+        self.rotate_heading(np.arctan2(r.z, r.x))
 
 
 class Trial(Movement, TimedMixin, TreeMixin):
