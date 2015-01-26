@@ -338,14 +338,19 @@ class Movement:
             stop = marker + '-c'
             m = self.df.loc[:, start:stop]
             x, y, z, c = (m[c] for c in m.columns)
-            # bad frames have negative or extremely large condition numbers, or
-            # are within 1cm of the origin.
             bad = (c < 0) | (c > 100) | (np.sqrt(x ** 2 + y ** 2 + z ** 2) < 0.01)
             self.df.ix[bad, start:stop] = float('nan')
 
+    def mask_nonindex_fingers(self):
+        '''Mask data in columns that correspond to non-index fingers.'''
+        for marker in self.marker_columns:
+            if 'fing' in marker and 'fing-index' not in marker:
+                start = marker + '-x'
+                stop = marker + '-c'
+                self.df.ix[:, start:stop] = float('nan')
+
     def drop_empty_markers(self):
-        '''Drop channels from our data frame that do not contain data.
-        '''
+        '''Drop channels from our data frame that do not contain data.'''
         empty = []
         for marker in self.marker_columns:
             if self.df[marker + '-c'].count() == 0 and self.df[marker + '-x'].sum() == 0:
