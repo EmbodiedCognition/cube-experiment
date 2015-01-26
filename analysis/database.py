@@ -345,15 +345,14 @@ class Movement:
             stop = marker + '-c'
             m = self.df.loc[:, start:stop]
             x, y, z, c = (m[c] for c in m.columns)
-            # "good" frames have reasonable condition numbers and are not
-            # located *exactly* at the origin (which, for the cube
-            # experiment, is on the floor).
-            good = (c > 0) & (c < 10) & ((x != 0) | (y != 0) | (z != 0))
+            # bad frames have outlandish condition numbers or are too close to
+            # the origin.
+            bad = (c < 0) | (c > 10) | ((abs(x) < 0.01) & (abs(y) < 0.01) & (abs(z) < 0.01))
             # if fewer than the given threshold of this marker's frames are
             # good, drop the entire marker from the data.
-            if good.sum() / len(good) < threshold:
-                good[:] = False
-            self.df.ix[~good, start:stop] = float('nan')
+            if bad.sum() > threshold * len(bad):
+                bad[:] = False
+            self.df.ix[bad, start:stop] = float('nan')
 
     def drop_empty_markers(self):
         '''Drop channels from our data frame that do not contain data.
