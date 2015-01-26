@@ -468,11 +468,10 @@ class Movement:
             return np.array([[ct, 0, st], [0, 1, 0], [-st, 0, ct]])
         rots = [roty(a) for a in angles]
         for m in self.marker_columns:
-            x, y, z = np.array([
-                np.dot(r, x) for r, x in zip(rots, np.array(self.trajectory(m)))
+            x, _, z = np.array([
+                np.dot(r, t) for r, t in zip(rots, self.trajectory(m).values)
             ]).T
             self.df[m + '-x'] = x
-            self.df[m + '-y'] = y
             self.df[m + '-z'] = z
         self.df['heading'] = angles
 
