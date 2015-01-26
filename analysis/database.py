@@ -383,49 +383,20 @@ class Movement:
             Number of SVT iterations between logging output. Defaults to 0,
             which only logs output at the start and finish of the SVT process.
         '''
-        cols = [c for c in self.marker_channel_columns if self.df[c].count()]
+        cols = [c for c in self.marker_channel_columns
+                if self.df[c].count() > 0.01 * len(self.df)]
         odf = self.df[cols]
         num_frames, num_markers = odf.shape
         num_entries = num_frames * num_markers
         filled_ratio = odf.count().sum() / max(1e-3, num_entries)
 
-        # learning rate heuristic, see paper section 5.1.2 for details.
-        learning_rate = 1.2 / filled_ratio
-
-        # interpolate linearly and compute weights based on inverse distance to
-        # closest non-dropout frame. we want the smoothed data to obey a
-        # nearly-linear interpolation close to observed frames, but far from
-        # those frames we don't have much prior knowledge.
-        linear = odf.interpolate().ffill().bfill()
-        weights = pd.DataFrame(np.zeros_like(odf), index=odf.index, columns=odf.columns)
-        for marker, columns in itertools.groupby(cols, lambda c: c[:-2]):
-            _, closest = self._closest(self.df[marker + '-c'])
-
-            # discount linear interpolation by e^-1 = 0.368 at 200ms,
-            # e^-2 = 0.135 at 400ms, etc.
-            w = np.exp(-5 * self.approx_delta_t * closest)
-
-            # discount finger markers; the are prone to dropout, and we want
-            # their position to influence the overall posture less than markers
-            # attached to large limbs.
-            if 'fing' in marker:
-                w /= 2
-
-            # set weights for x, y, and z channels of this marker
-            for column in columns:
-                weights[column] = w
-
-        # create dataframe of trajectories by reshaping existing data.
-        darr = np.asarray(linear)
-        warr = np.asarray(weights)
+        vals = odf.values
         extra = num_frames % consec_frames
         if extra > 0:
-            z = np.zeros((consec_frames - extra, num_markers))
-            darr = np.vstack([darr, z])
-            warr = np.vstack([warr, z])
-        shape = len(darr) // consec_frames, num_markers * consec_frames
-        df = pd.DataFrame(darr.reshape(shape))
-        wf = pd.DataFrame(warr.reshape(shape))
+            fill = np.zeros((consec_frames - extra, num_markers))
+            fill.fill(float('nan'))
+            vals = np.vstack([vals, fill])
+        df = pd.DataFrame(vals.reshape((len(vals) // consec_frames, num_markers * consec_frames)))
 
         logging.info('SVT: filling %d x %d, reshaped as %d x %d',
                      num_frames, num_markers, df.shape[0], df.shape[1])
@@ -438,13 +409,16 @@ class Movement:
             logging.info('SVT %d: weighted rmse %f using %d singular values',
                          i, rmse, len(s.nonzero()[0]))
 
+        def noise():
+            return (max_rmse / 2) * np.random.randn(*err.shape)
+
         s = None
         x = y = pd.DataFrame(np.zeros_like(df))
-        rmse = min_rmse + 1
+        rmse = max_rmse + 1
         i = 0
-        while i < 1000 and rmse > min_rmse:
-            err = wf * (df - x)
-            y += learning_rate * err
+        while rmse > max_rmse:
+            err = (df - x).fillna(0)
+            y += (1.2 / filled_ratio) * (err + noise())
             u, s, v = np.linalg.svd(y, full_matrices=False)
             s = np.clip(s - threshold, 0, np.inf)
             x = pd.DataFrame(np.dot(u, np.dot(np.diag(s), v)))
