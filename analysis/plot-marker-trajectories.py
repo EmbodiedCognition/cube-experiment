@@ -34,7 +34,7 @@ def main(root,
                 plots.show_cubes(ax, t)
                 cubes = False
             if dropouts:
-                t.replace_dropouts()
+                t.mask_dropouts()
             if spline_order:
                 t.normalize(order=spline_order, accuracy=1. / accuracy)
             elif svt_threshold:

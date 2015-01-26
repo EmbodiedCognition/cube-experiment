@@ -328,30 +328,19 @@ class Movement:
         '''Remove our data frame from memory.'''
         self.df = None
 
-    def replace_dropouts(self, threshold=0.1):
-        '''For a given marker-start column, replace dropout frames with nans.
+    def mask_dropouts(self):
+        '''For each marker, replace dropout frames with nans.
 
         This method alters the movement's `df` in-place.
-
-        Parameters
-        ----------
-        threshold : float in (0, 1), optional
-            Drop an entire marker if fewer than this proportion of frames are
-            visible. Defaults to 0.1 (i.e., at least 10% of frames must be
-            visible).
         '''
         for marker in self.marker_columns:
             start = marker + '-x'
             stop = marker + '-c'
             m = self.df.loc[:, start:stop]
             x, y, z, c = (m[c] for c in m.columns)
-            # bad frames have outlandish condition numbers or are too close to
-            # the origin.
-            bad = (c < 0) | (c > 10) | ((abs(x) < 0.01) & (abs(y) < 0.01) & (abs(z) < 0.01))
-            # if fewer than the given threshold of this marker's frames are
-            # good, drop the entire marker from the data.
-            if bad.sum() > threshold * len(bad):
-                bad[:] = False
+            # bad frames have negative or extremely large condition numbers, or
+            # are within 1cm of the origin.
+            bad = (c < 0) | (c > 100) | (np.sqrt(x ** 2 + y ** 2 + z ** 2) < 0.01)
             self.df.ix[bad, start:stop] = float('nan')
 
     def drop_empty_markers(self):
