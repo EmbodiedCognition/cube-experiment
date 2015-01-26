@@ -15,7 +15,7 @@ def smooth(args):
     t.svt(threshold=args.threshold,
           max_rmse=args.accuracy,
           consec_frames=args.frames,
-          log_every=10)
+          log_every=0)
     t.lowpass(args.lowpass, only_dropouts=False)
     t.save(t.root.replace(args.root, args.output))
 
