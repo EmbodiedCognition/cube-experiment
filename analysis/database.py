@@ -353,7 +353,7 @@ class Movement:
                     empty.append('{}-{}'.format(marker, channel))
         self.df = self.df.drop(empty, axis=1)
 
-    def svt(self, threshold=100, min_rmse=0.01, consec_frames=3, log_every=0):
+    def svt(self, threshold=500, max_rmse=0.002, consec_frames=3, log_every=0):
         '''Complete missing marker data using singular value thresholding.
 
         This method alters the movement's `df` in-place.
@@ -367,10 +367,10 @@ class Movement:
         Parameters
         ----------
         threshold : int, optional
-            Threshold for singular values. Defaults to 100.
-        min_rmse : float, optional
-            Halt the reconstruction process when reconstructed data is below
-            this RMS error compared with measured data. Defaults to 0.01.
+            Threshold for singular values. Defaults to 500.
+        max_rmse : float, optional
+            Continue the reconstruction process until reconstructed data is
+            below this RMS error compared with measured data. Defaults to 0.002.
         consec_frames : int, optional
             Compute the SVT using trajectories of this many consecutive frames.
             Defaults to 3.
