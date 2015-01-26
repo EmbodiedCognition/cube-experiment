@@ -4,9 +4,9 @@ import numpy as np
 
 
 @contextlib.contextmanager
-def space(show_afterwards=True):
+def space(show_afterwards=True, azim=30, elev=30):
     '''Produce a 3D plotting axes, for use in a with statement.'''
-    ax = lmj.plot.axes(111, projection='3d', aspect='equal')
+    ax = lmj.plot.create_axes(111, projection='3d', aspect='equal', spines=None)
     yield ax
     ax.set_xlim([-2, 2])
     ax.set_ylim([-2, 2])
@@ -14,12 +14,11 @@ def space(show_afterwards=True):
     ax.set_xticks([-2, -1, 0, 1, 2])
     ax.set_yticks([-2, -1, 0, 1, 2])
     ax.set_zticks([0, 1, 2])
-    ax.set_xlabel('X axis')
-    ax.set_ylabel('Y axis')
-    ax.set_zlabel('Z axis')
     ax.w_xaxis.set_pane_color((1, 1, 1, 1))
     ax.w_yaxis.set_pane_color((1, 1, 1, 1))
     ax.w_zaxis.set_pane_color((1, 1, 1, 1))
+    ax.azim = azim
+    ax.elev = elev
     if show_afterwards:
         lmj.plot.show()
 
