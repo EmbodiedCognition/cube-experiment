@@ -340,7 +340,7 @@ class Movement:
             visible. Defaults to 0.1 (i.e., at least 10% of frames must be
             visible).
         '''
-        for marker in self.df.marker_columns:
+        for marker in self.marker_columns:
             start = marker + '-x'
             stop = marker + '-c'
             m = self.df.loc[:, start:stop]
@@ -745,19 +745,16 @@ class Movement:
     def make_body_relative(self):
         '''Translate and rotate marker data so that it's body-relative.
         '''
-        r_ilium = self.trajectory('r-ilium')
-        l_ilium = self.trajectory('l-ilium')
-        r_hip = self.trajectory('r-hip')
-        l_hip = self.trajectory('l-hip')
-        self.recenter((r_ilium + l_ilium + r_hip + l_hip) / 4)
-        r = ((r_hip - r_ilium) + (l_hip - l_ilium)) / 2
+        t = self.trajectory
+        self.recenter((t('r-hip') + t('r-ilium') + t('l-hip') + t('l-ilium')) / 4)
+        r = ((t('r-hip') - t('r-ilium')) + (t('l-hip') - t('l-ilium'))) / 2
         self.rotate_heading(np.arctan2(-r.z, r.x))
 
     def make_target_relative(self):
         '''Translate and rotate marker data so it's relative to the target.
         '''
         self.recenter(self.target_trajectory)
-        r = (self.trajectory('r-ilium') + self.trajectory('l-ilium')) / 2
+        r = self.source_trajectory
         self.rotate_heading(np.arctan2(-r.z, r.x))
 
 
