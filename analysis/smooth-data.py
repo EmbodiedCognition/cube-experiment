@@ -10,13 +10,14 @@ import database
 def smooth(args):
     args.trial.load()
     args.trial.replace_dropouts(args.visibility)
+    #args.trial.drop_nonindex_fingers()
     args.trial.reindex(args.frame_rate)
-    args.trial.svt(args.threshold, 4 * args.accuracy, args.frames)
-    args.trial.lowpass(1 * args.lowpass, only_dropouts=True)
-    args.trial.svt(args.threshold, 2 * args.accuracy, args.frames)
-    args.trial.lowpass(2 * args.lowpass, only_dropouts=True)
-    args.trial.svt(args.threshold, 1 * args.accuracy, args.frames)
-    args.trial.lowpass(4 * args.lowpass, only_dropouts=False)
+    args.trial.svt(
+        threshold=args.threshold,
+        max_rmse=args.accuracy,
+        consec_frames=args.frames,
+        log_every=10)
+    args.trial.lowpass(args.lowpass, only_dropouts=False)
     args.trial.save(args.trial.root.replace(args.root, args.output))
 
 
@@ -32,7 +33,7 @@ Args = collections.namedtuple('Args', 'trial root output frame_rate visibility a
     frames=('number of frames for SVT', 'option', None, int),
     lowpass=('lowpass filter at N Hz', 'option', None, float),
 )
-def main(root, output, frame_rate=100., visibility=0.1, accuracy=0.001, threshold=100, frames=3, lowpass=5.):
+def main(root, output, frame_rate=100., visibility=0, accuracy=0.002, threshold=500, frames=3, lowpass=10.):
     args = root, output, frame_rate, visibility, accuracy, threshold, frames, lowpass
     trials = database.Experiment(root).trials_matching('*', load=False)
     mp.Pool().map(smooth, (Args(t, *args) for t in trials))
