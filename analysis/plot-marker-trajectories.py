@@ -46,7 +46,9 @@ def main(root,
                         np.asarray(df.z),
                         zs=np.asarray(df.y),
                         color=lmj.plot.COLOR11[i],
-                        alpha=0.7)
+                        alpha=0.7,
+                        lw=2,
+                )
 
 
 if __name__ == '__main__':
