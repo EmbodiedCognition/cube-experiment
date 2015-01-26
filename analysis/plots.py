@@ -8,9 +8,15 @@ def space(show_afterwards=True):
     '''Produce a 3D plotting axes, for use in a with statement.'''
     ax = lmj.plot.axes(111, projection='3d', aspect='equal')
     yield ax
-    ax.set_xlim([-3, 3])
-    ax.set_ylim([-3, 3])
+    ax.set_xlim([-2, 2])
+    ax.set_ylim([-2, 2])
     ax.set_zlim([ 0, 2])
+    ax.set_xticks([-2, -1, 0, 1, 2])
+    ax.set_yticks([-2, -1, 0, 1, 2])
+    ax.set_zticks([0, 1, 2])
+    ax.set_xlabel('X axis')
+    ax.set_ylabel('Y axis')
+    ax.set_zlabel('Z axis')
     ax.w_xaxis.set_pane_color((1, 1, 1, 1))
     ax.w_yaxis.set_pane_color((1, 1, 1, 1))
     ax.w_zaxis.set_pane_color((1, 1, 1, 1))
@@ -55,6 +61,15 @@ def skeleton(ax, trial, frame, **kwargs):
     trial : Movement
     frame : int or float
     '''
+    sckwargs = dict(kwargs)
+    for k in ('lw', 'linewidth'):
+        if k in sckwargs:
+            sckwargs.pop(k)
+    ox = oz = 0
+    if 'offset' in kwargs:
+        ox, oz = kwargs.pop('offset')
+        sckwargs.pop('offset')
+    idx = trial.df.index[frame]
     for segment in (
         # legs
         ['l-ilium', 'l-knee', 'l-shin', 'l-ankle', 'l-heel', 'l-mt-outer', 'l-mt-inner'],
@@ -74,11 +89,23 @@ def skeleton(ax, trial, frame, **kwargs):
         xs, ys, zs = [], [], []
         for marker in segment:
             traj = trial.trajectory(marker)
-            xs.append(traj.x[traj.index[frame]])
-            ys.append(traj.y[traj.index[frame]])
-            zs.append(traj.z[traj.index[frame]])
-        ax.scatter(xs, zs, zs=ys, s=10, c='#111111', alpha=0.5, **kwargs)
+            xs.append(traj.x[idx] + ox)
+            ys.append(traj.y[idx])
+            zs.append(traj.z[idx] + oz)
+        ax.scatter(xs, zs, zs=ys, s=20, c='#111111', lw=0, **sckwargs)
         ax.plot(xs, zs, zs=ys, **kwargs)
+    for segment in (
+        # rotational quantities
+        ['r-ilium', 'r-hip'],
+        ['l-ilium', 'l-hip'],
+    ):
+        xs, ys, zs = [], [], []
+        for marker in segment:
+            traj = trial.trajectory(marker)
+            xs.append(traj.x[idx] + ox)
+            ys.append(traj.y[idx])
+            zs.append(traj.z[idx] + oz)
+        ax.plot(xs, zs, zs=ys, c='#238933', lw=3, alpha=0.9)
 
 
 u, v = np.mgrid[0:2 * np.pi:17j, 0:np.pi:13j]
