@@ -42,8 +42,8 @@ def compute(trial, target, goal_markers=('marker13-r-fing-index', 'marker32-t3',
     if not os.path.exists(r):
         os.makedirs(r)
 
+    #trial.save(os.path.join(r, '{}.csv.gz'.format(trial.key)))
     trial.df.to_pickle(os.path.join(r, '{}.pkl'.format(trial.key)))
-    trial.df.to_csv(os.path.join(r, '{}.csv'.format(trial.key)))
     logging.info('%s %s %s: saved jacobian %s',
                  trial.parent.parent.key,
                  trial.parent.key,
