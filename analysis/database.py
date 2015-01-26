@@ -516,12 +516,10 @@ class Movement:
             Frame rate for desired time offsets. Defaults to 100Hz.
         '''
         posts = np.arange(0, self.df.index[-1], 1. / frame_rate)
-        df = pd.DataFrame(columns=self.df.columns, index=posts)
-        for c in self.df.columns:
-            series = self.df[c].reindex(posts, method='ffill', limit=1)
+        df = self.df.reindex(posts, method='bfill', limit=1)
+        for c in df.columns:
             if not c.startswith('marker'):
-                series = series.ffill().bfill()
-            df[c] = series
+                df[c] = df[c].bfill().ffill()
         self.df = df
         self._debug('counts after reindexing')
 
