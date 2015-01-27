@@ -6,8 +6,6 @@ import functools
 import gzip
 import hashlib
 import io
-import itertools
-import joblib
 import numpy as np
 import os
 import pandas as pd
@@ -101,9 +99,6 @@ class TreeMixin:
         return any(c.matches(pattern) for c in self.children)
 
 
-def _load_trial(t):
-    return t.load()
-
 class Experiment:
     '''Encapsulates all data gathered from the cube poking experiment.
 
@@ -123,16 +118,10 @@ class Experiment:
         for s in self.subjects:
             yield from s.trials
 
-    def trials_matching(self, pattern, load=True):
-        matches = []
+    def trials_matching(self, pattern):
         for t in self.trials:
             if t.matches(pattern):
-                matches.append(t)
-        if not load:
-            return matches
-        pool = joblib.Parallel(-1)
-        load = joblib.delayed(_load_trial)
-        return pool(load(t) for t in matches)
+                yield t
 
 
 class Subject(TimedMixin, TreeMixin):
