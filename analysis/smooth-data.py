@@ -2,7 +2,7 @@
 
 import climate
 import collections
-import multiprocessing as mp
+import joblib
 
 import database
 
@@ -34,7 +34,8 @@ Args = collections.namedtuple('Args', 'trial root output frame_rate accuracy thr
 def main(root, output, frame_rate=100., accuracy=0.002, threshold=500, frames=3, lowpass=10.):
     args = root, output, frame_rate, accuracy, threshold, frames, lowpass
     trials = database.Experiment(root).trials_matching('*', load=False)
-    mp.Pool().map(smooth, (Args(t, *args) for t in trials))
+    proc = joblib.delayed(smooth)
+    joblib.Parallel(-1)(proc(Args(t, *args) for t in trials))
 
 
 if __name__ == '__main__':
