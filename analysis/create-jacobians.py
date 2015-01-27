@@ -11,8 +11,18 @@ import database
 
 logging = climate.get_logger('jacobian')
 
+GOAL_MARKERS = (
+    'marker01-r-head-front',
+    'marker06-r-collar',
+    'marker08-r-elbow',
+    'marker13-r-fing-index',
+    'marker25-l-fing-index',
+    'marker32-t3',
+    'marker35-r-ilium',
+    'marker40-r-heel',
+)
 
-def compute(trial, target):
+def compute(trial, target, goal_markers=GOAL_MARKERS):
     trial.load()
     #trial.mask_empty_markers()
     #trial.drop_fiddly_target_frames()
