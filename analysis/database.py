@@ -706,17 +706,26 @@ class Movement:
                 return percent_dropped
         return 0
 
+    def convert_markers_to_z_scores(self):
+        '''Convert marker positions to z-scores.'''
+        for c in self.marker_channel_columns:
+            mean = self.df[c].mean()
+            std = max(1e-8, self.df[c].std())
+            self.df[c + '-mean'] = mean
+            self.df[c + '-std'] = std
+            self.df[c] -= mean
+            self.df[c] /= std
+
     def make_body_relative(self):
-        '''Translate and rotate marker data so that it's body-relative.
-        '''
+        '''Translate and rotate marker data so that it's body-relative.'''
         t = self.trajectory
         self.recenter((t('r-hip') + t('r-ilium') + t('l-hip') + t('l-ilium')) / 4)
         r = ((t('r-hip') - t('r-ilium')) + (t('l-hip') - t('l-ilium'))) / 2
         self.rotate_heading(np.arctan2(r.z, r.x))
+        self.convert_markers_to_z_scores()
 
     def make_target_relative(self):
-        '''Translate and rotate marker data so it's relative to the target.
-        '''
+        '''Translate and rotate marker data so it's relative to the target.'''
         self.recenter(self.target_trajectory)
         r = self.source_trajectory
         self.rotate_heading(np.arctan2(r.z, r.x))
