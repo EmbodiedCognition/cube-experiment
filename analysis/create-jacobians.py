@@ -12,9 +12,9 @@ import database
 logging = climate.get_logger('jacobian')
 
 
-def compute(trial, target, goal_markers=('marker13-r-fing-index', 'marker32-t3', 'marker35-r-ilium')):
+def compute(trial, target):
     trial.load()
-    trial.drop_empty_markers()
+    #trial.mask_empty_markers()
     #trial.drop_fiddly_target_frames()
 
     body = database.Trial(trial.parent, trial.basename)
@@ -31,7 +31,7 @@ def compute(trial, target, goal_markers=('marker13-r-fing-index', 'marker32-t3',
         bn = 'b{}{}'.format(body_marker[6:8], body_channel)
         bs = body.df['{}-v{}'.format(body_marker, body_channel)]
         bs[bs == 0] = 1e-8
-        for goal_marker, goal_channel in itertools.product(goal_markers, 'xyz'):
+        for goal_marker, goal_channel in itertools.product(goal.marker_columns, 'xyz'):
             gn = 'g{}{}'.format(goal_marker[6:8], goal_channel)
             gs = goal.df['{}-v{}'.format(goal_marker, goal_channel)]
             gs[gs == 0] = 1e-8
