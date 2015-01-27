@@ -41,23 +41,23 @@ def compute(trial, target, goal_markers=GOAL_MARKERS):
         bn = 'b{}{}'.format(body_marker[6:8], body_channel)
         bs = body.df['{}-v{}'.format(body_marker, body_channel)].copy()
         bs[bs == 0] = 1e-8
-        for goal_marker, goal_channel in itertools.product(goal.marker_columns, 'xyz'):
+        for goal_marker, goal_channel in itertools.product(goal_markers, 'xyz'):
             gn = 'g{}{}'.format(goal_marker[6:8], goal_channel)
             gs = goal.df['{}-v{}'.format(goal_marker, goal_channel)].copy()
             gs[gs == 0] = 1e-8
             trial.df['jac-fwd-{}/{}'.format(gn, bn)] = gs / bs
             trial.df['jac-inv-{}/{}'.format(bn, gn)] = bs / gs
 
-    r = os.path.join(target, trial.parent.parent.key, trial.parent.key)
+    r = os.path.join(target, trial.parent.parent.basename, trial.parent.basename)
     if not os.path.exists(r):
         os.makedirs(r)
-    trial.save(os.path.join(r, '{}.csv.gz'.format(trial.key)))
+    trial.save(os.path.join(r, '{}.csv.gz'.format(trial.basename)))
 
 
 def main(root, target, pattern='*'):
-    trials = database.Experiment(root).trials_matching(pattern, load=False)
+    trials = database.Experiment(root).trials_matching(pattern)
     proc = joblib.delayed(compute)
-    joblib.Parallel(-1)(proc(t, target) for t in trials)
+    joblib.Parallel(-2)(proc(t, target) for t in trials)
 
 
 if __name__ == '__main__':
