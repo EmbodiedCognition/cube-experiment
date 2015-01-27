@@ -29,11 +29,11 @@ def compute(trial, target):
 
     for body_marker, body_channel in itertools.product(body.marker_columns, 'xyz'):
         bn = 'b{}{}'.format(body_marker[6:8], body_channel)
-        bs = body.df['{}-v{}'.format(body_marker, body_channel)]
+        bs = body.df['{}-v{}'.format(body_marker, body_channel)].copy()
         bs[bs == 0] = 1e-8
         for goal_marker, goal_channel in itertools.product(goal.marker_columns, 'xyz'):
             gn = 'g{}{}'.format(goal_marker[6:8], goal_channel)
-            gs = goal.df['{}-v{}'.format(goal_marker, goal_channel)]
+            gs = goal.df['{}-v{}'.format(goal_marker, goal_channel)].copy()
             gs[gs == 0] = 1e-8
             trial.df['jac-fwd-{}/{}'.format(gn, bn)] = gs / bs
             trial.df['jac-inv-{}/{}'.format(bn, gn)] = bs / gs
