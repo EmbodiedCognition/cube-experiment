@@ -17,15 +17,17 @@ GOAL_MARKERS = (
     'marker08-r-elbow',
     'marker13-r-fing-index',
     'marker25-l-fing-index',
-    'marker32-t3',
-    'marker35-r-ilium',
-    'marker40-r-heel',
+    'marker36-r-hip',
+    'marker37-r-knee',
+    'marker41-r-mt-outer',
 )
 
 def compute(trial, target, goal_markers=GOAL_MARKERS):
     trial.load()
-    #trial.mask_empty_markers()
-    #trial.drop_fiddly_target_frames()
+    #trial.distance_to_target.plot(lw=2, alpha=0.7)
+    trial.mask_fiddly_target_frames()
+    #trial.distance_to_target.plot(lw=3, alpha=0.7)
+    #plt.show()
 
     body = database.Trial(trial.parent, trial.basename)
     body.df = trial.df.copy()
@@ -40,18 +42,15 @@ def compute(trial, target, goal_markers=GOAL_MARKERS):
     for body_marker, body_channel in itertools.product(body.marker_columns, 'xyz'):
         bn = 'b{}{}'.format(body_marker[6:8], body_channel)
         bs = body.df['{}-v{}'.format(body_marker, body_channel)].copy()
-        bs[bs == 0] = 1e-8
+        bs[bs == 0] = float('nan')
         for goal_marker, goal_channel in itertools.product(goal_markers, 'xyz'):
             gn = 'g{}{}'.format(goal_marker[6:8], goal_channel)
             gs = goal.df['{}-v{}'.format(goal_marker, goal_channel)].copy()
-            gs[gs == 0] = 1e-8
+            gs[gs == 0] = float('nan')
             trial.df['jac-fwd-{}/{}'.format(gn, bn)] = gs / bs
             trial.df['jac-inv-{}/{}'.format(bn, gn)] = bs / gs
 
-    r = os.path.join(target, trial.parent.parent.basename, trial.parent.basename)
-    if not os.path.exists(r):
-        os.makedirs(r)
-    trial.save(os.path.join(r, trial.basename))
+    trial.save(os.path.join(target, trial.parent.parent.basename, trial.parent.basename, trial.basename))
 
 
 def main(root, target, pattern='*'):
