@@ -51,7 +51,7 @@ def compute(trial, target, goal_markers=GOAL_MARKERS):
     r = os.path.join(target, trial.parent.parent.basename, trial.parent.basename)
     if not os.path.exists(r):
         os.makedirs(r)
-    trial.save(os.path.join(r, '{}.csv.gz'.format(trial.basename)))
+    trial.save(os.path.join(r, trial.basename))
 
 
 def main(root, target, pattern='*'):
