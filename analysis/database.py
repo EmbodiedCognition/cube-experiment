@@ -404,8 +404,8 @@ class Movement:
         self.df = df
         self._debug('counts after reindexing')
 
-    def drop_fiddly_target_frames(self, enter_threshold=0.25, exit_threshold=0.35):
-        '''This code attempts to regularize the moment of target contact.
+    def mask_fiddly_target_frames(self, enter_threshold=0.25, exit_threshold=0.5):
+        '''This code attempts to normalize the moment of target contact.
 
         Sometimes (and particularly for some targets, like #1) the phasespace
         system was not able to record the relevant marker at the moment of
@@ -428,30 +428,26 @@ class Movement:
             Distance (in meters) from target below which a target can be
             considered to be touched. Defaults to a rather large-seeming 25cm,
             but the vizard/phasespace setup was triggered at a nominal distance
-            of 0.2m, so this seems somewhat reasonable.
+            of 20cm, so this seems somewhat reasonable.
         exit_threshold : float, optional
             Distance (in meters) from target above which a subject is considered
-            to be no longer touching the target. Defaults to 0.35.
-
-        Returns
-        -------
-        percent_dropped : float
-            Percent of frames in this trial that were dropped.
-
+            to be no longer touching the target. Defaults to 0.5.
         '''
+        changes = self.df.target.diff(1).fillna(0).nonzero()
+
         dist = self.distance_to_target
-        rate = pd.rolling_mean(dist.diff(2).shift(-1).fillna(0), 7, center=True)
+        rate = pd.rolling_mean(dist.diff(2).shift(-1), 19, center=True)
+
         minima = (dist < enter_threshold) & (rate > 0)
         stayings = dist < exit_threshold
+
+        mask = pd.Series([False] * len(minima), index=dist.index)
         for i in minima[minima].index:
-            rest = stayings[i:]
-            if sum(rest) > 0.7 * len(rest) and len(rest) > 0.5 / self.approx_delta_t:
-                self.df = self.df.drop(rest.index)
-                percent_dropped = 100 * len(rest) / len(dist)
-                logging.info('dropping %d fiddly frames -- %.1f %% of trial',
-                             len(rest), percent_dropped)
-                return percent_dropped
-        return 0
+            mask = mask
+
+        self.df[mask] = float('nan')
+        logging.info('masked %d fiddly frames -- %.1f %% of trial',
+                     sum(mask), 100 * sum(mask) / len(self.df))
 
     def convert_markers_to_z_scores(self):
         '''Convert marker positions to z-scores.'''
