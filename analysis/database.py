@@ -334,23 +334,6 @@ class Movement:
             bad = (c < 0) | (c > 100) | (np.sqrt(x ** 2 + y ** 2 + z ** 2) < 0.01)
             self.df.ix[bad, start:stop] = float('nan')
 
-    def mask_nonindex_fingers(self):
-        '''Mask data in columns that correspond to non-index fingers.'''
-        for marker in self.marker_columns:
-            if 'fing' in marker and 'fing-index' not in marker:
-                start = marker + '-x'
-                stop = marker + '-c'
-                self.df.ix[:, start:stop] = float('nan')
-
-    def drop_empty_markers(self):
-        '''Drop channels from our data frame that do not contain data.'''
-        empty = []
-        for marker in self.marker_columns:
-            if self.df[marker + '-c'].count() == 0 and self.df[marker + '-x'].sum() == 0:
-                for channel in 'xyzc':
-                    empty.append('{}-{}'.format(marker, channel))
-        self.df = self.df.drop(empty, axis=1)
-
     def svt(self, threshold=500, max_rmse=0.002, consec_frames=3, log_every=0):
         '''Complete missing marker data using singular value thresholding.
 
