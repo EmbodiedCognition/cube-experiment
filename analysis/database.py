@@ -334,80 +334,6 @@ class Movement:
             bad = (c < 0) | (c > 100) | (np.sqrt(x ** 2 + y ** 2 + z ** 2) < 0.01)
             self.df.ix[bad, start:stop] = float('nan')
 
-    def svt(self, threshold=500, max_rmse=0.002, consec_frames=3, log_every=0):
-        '''Complete missing marker data using singular value thresholding.
-
-        This method alters the movement's `df` in-place.
-
-        Singular value thresholding is described in Cai, Candes, & Shen (2010),
-        "A Singular Value Thresholding Algorithm for Matrix Completion" (see
-        http://arxiv.org/pdf/0810.3286.pdf). The implementation here is rather
-        naive but seems to get the job done for the types of mocap data that we
-        gathered in the cube experiment.
-
-        Parameters
-        ----------
-        threshold : int, optional
-            Threshold for singular values. Defaults to 500.
-        max_rmse : float, optional
-            Continue the reconstruction process until reconstructed data is
-            below this RMS error compared with measured data. Defaults to 0.002.
-        consec_frames : int, optional
-            Compute the SVT using trajectories of this many consecutive frames.
-            Defaults to 3.
-        log_every : int, optional
-            Number of SVT iterations between logging output. Defaults to 0,
-            which only logs output at the start and finish of the SVT process.
-        '''
-        cols = [c for c in self.marker_channel_columns
-                if self.df[c].count() > 0.01 * len(self.df)]
-        odf = self.df[cols]
-        num_frames, num_markers = odf.shape
-        num_entries = num_frames * num_markers
-        filled_ratio = odf.count().sum() / max(1e-3, num_entries)
-
-        vals = odf.values
-        extra = num_frames % consec_frames
-        if extra > 0:
-            fill = np.zeros((consec_frames - extra, num_markers))
-            fill.fill(float('nan'))
-            vals = np.vstack([vals, fill])
-        df = pd.DataFrame(vals.reshape((len(vals) // consec_frames, num_markers * consec_frames)))
-
-        logging.info('SVT: filling %d x %d, reshaped as %d x %d',
-                     num_frames, num_markers, df.shape[0], df.shape[1])
-        logging.info('SVT: missing %d of %d values (%.1f%% filled)',
-                     num_entries - odf.count().sum(),
-                     num_entries,
-                     100 * filled_ratio)
-
-        def log():
-            logging.info('SVT %d: weighted rmse %f using %d singular values',
-                         i, rmse, len(s.nonzero()[0]))
-
-        def noise():
-            return (max_rmse / 2) * np.random.randn(*err.shape)
-
-        s = None
-        x = y = pd.DataFrame(np.zeros_like(df))
-        rmse = max_rmse + 1
-        i = 0
-        while rmse > max_rmse:
-            err = (df - x).fillna(0)
-            y += (1.2 / filled_ratio) * (err + noise())
-            u, s, v = np.linalg.svd(y, full_matrices=False)
-            s = np.clip(s - threshold, 0, np.inf)
-            x = pd.DataFrame(np.dot(u, np.dot(np.diag(s), v)))
-            rmse = np.sqrt((err * err).mean().mean())
-            if log_every and i % log_every == 0: log()
-            i += 1
-        log()
-
-        x = np.asarray(x).reshape((-1, num_markers))[:num_frames]
-        df = pd.DataFrame(x, index=odf.index, columns=odf.columns)
-        for c in cols:
-            self.df[c] = df[c]
-
     def recenter(self, center):
         '''Recenter all position data relative to the given centers.
 
@@ -477,34 +403,6 @@ class Movement:
                 df[c] = df[c].bfill().ffill()
         self.df = df
         self._debug('counts after reindexing')
-
-    def lowpass(self, freq=10., order=4, only_dropouts=True):
-        '''Filter marker data using a butterworth low-pass filter.
-
-        This method alters the data in `df` in-place.
-
-        Parameters
-        ----------
-        freq : float, optional
-            Use a butterworth filter with this cutoff frequency. Defaults to
-            10Hz.
-        order : int, optional
-            Order of the butterworth filter. Defaults to 4.
-        only_dropouts : bool, optional
-            Replace only data in dropped frames. Defaults to True. Set this to
-            False to replace all data with lowpass-filtered data.
-        '''
-        nyquist = 1 / (2 * self.approx_delta_t)
-        assert 0 < freq < nyquist
-        b, a = scipy.signal.butter(order, freq / nyquist)
-        for c in self.marker_channel_columns:
-            series = self.df[c]
-            smooth = scipy.signal.filtfilt(b, a, series)
-            if only_dropouts:
-                drops = np.asarray(~self.df[c[:-1] + 'c'].notnull())
-                series[drops] = smooth[drops]
-            else:
-                self.df[c] = smooth
 
     def normalize(self, frame_rate=100., order=1, dropout_decay=0.1, accuracy=1):
         '''Use spline interpolation to resample data on a regular time grid.
