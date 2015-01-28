@@ -670,7 +670,7 @@ class Movement:
 
         '''
         dist = self.distance_to_target()
-        rate = pd.rolling_mean(dist.diff(2).shift(-1).fillna(0), 4).shift(-2).fillna(0)
+        rate = pd.rolling_mean(dist.diff(2).shift(-1).fillna(0), 7, center=True)
         minima = (dist < enter_threshold) & (rate > 0)
         stayings = dist < exit_threshold
         for i in minima[minima].index:
