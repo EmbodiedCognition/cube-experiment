@@ -150,7 +150,7 @@ def main(root, output, frame_rate=100., accuracy=0.002, threshold=500, lowpass=1
     args = root, output, frame_rate, accuracy, threshold, lowpass
     trials = database.Experiment(root).trials_matching('*')
     proc = joblib.delayed(smooth)
-    joblib.Parallel(-2)(proc(Args(t, *args) for t in trials))
+    joblib.Parallel(-2)(proc(Args(t, *args)) for t in trials)
 
 
 if __name__ == '__main__':
