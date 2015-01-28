@@ -381,7 +381,7 @@ class Movement:
         dt = 2 * self.approx_delta_t
         for c in self.marker_channel_columns:
             self.df['{}-v{}'.format(c[:-2], c[-1])] = pd.rolling_mean(
-                dist.diff(2).shift(-1) / dt, smooth, center=True)
+                self.df[c].diff(2).shift(-1) / dt, smooth, center=True)
 
     def reindex(self, frame_rate=100.):
         '''Reindex the data frame to a regularly spaced time grid.
