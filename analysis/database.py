@@ -11,8 +11,6 @@ import os
 import pandas as pd
 import pickle
 import re
-import scipy.interpolate
-import scipy.signal
 
 logging = climate.get_logger('database')
 
