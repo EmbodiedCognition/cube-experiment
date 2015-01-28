@@ -293,6 +293,7 @@ class Movement:
         z = np.asarray(self.df.loc[:, marker + '-x':marker + '-z'])
         return pd.DataFrame(z, index=self.df.index, columns=list('xyz'))
 
+    @property
     def distance_to_target(self):
         '''Return the distance to the target cube over time.
 
@@ -305,6 +306,7 @@ class Movement:
         df = self.effector_trajectory - self.target_trajectory
         return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
+    @property
     def distance_from_source(self):
         '''Return the distance to the source cube over time.
 
@@ -439,7 +441,7 @@ class Movement:
             Percent of frames in this trial that were dropped.
 
         '''
-        dist = self.distance_to_target()
+        dist = self.distance_to_target
         rate = pd.rolling_mean(dist.diff(2).shift(-1).fillna(0), 7, center=True)
         minima = (dist < enter_threshold) & (rate > 0)
         stayings = dist < exit_threshold
