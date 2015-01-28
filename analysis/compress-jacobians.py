@@ -11,7 +11,7 @@ import database
 logging = climate.get_logger('compress')
 
 
-def jac(trial, prefix):
+def extract(trial, prefix):
     trial.load()
     cols = [c for c in trial.df.columns if c.startswith(prefix)]
     return trial.df[cols].values
@@ -24,13 +24,15 @@ def jac(trial, prefix):
     count=('only use this many jacobians for PCA', 'option', None, int),
     variance=('retain components to preserve this variance', 'option', None, float),
 )
-def main(root, output, pattern='*', count=10000, variance=0.99):
+def main(root, output, pattern='*', count=10000, variance=0.999):
     trials = list(database.Experiment(root).trials_matching(pattern))
-    proc = joblib.delayed(jac)
+    proc = joblib.delayed(extract)
     for prefix in ('fwd', 'inv'):
         jacobia = []
         for jacs in joblib.Parallel(-1)(proc(t, 'jac-' + prefix) for t in trials):
-            jacobia.extend(jacs)
+            for jac in jacs:
+                if np.all(abs(jac) < 1e8):
+                    jacobia.append(jac)
         pca = lmj.pca.PCA()
         pca_file = os.path.join(output, 'pca-{}.npz'.format(prefix))
         if os.path.exists(pca_file):
@@ -40,7 +42,7 @@ def main(root, output, pattern='*', count=10000, variance=0.99):
             np.random.shuffle(idx)
             pca.fit(np.asarray([jacobia[i] for i in idx[:count]]))
             pca.save(pca_file)
-            for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99):
+            for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999):
                 print('{:.1f}%: {} components'.format(100 * v, pca.num_components(v)))
         enc = pca.encode(jacobia, retain=variance)
         enc_file = os.path.join(output, 'jac-{}.npy'.format(prefix))
