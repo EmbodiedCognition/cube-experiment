@@ -382,11 +382,9 @@ class Movement:
     def add_velocities(self, smooth=19):
         '''Add columns to the data that reflect the instantaneous velocity.'''
         dt = 2 * self.approx_delta_t
-        secant = lambda x: (x[2] - x[0]) / dt
         for c in self.marker_channel_columns:
-            v = '{}-v{}'.format(c[:-2], c[-1])
-            diff = pd.rolling_apply(self.df[c], 3, secant, center=True).fillna(0)
-            self.df[v] = pd.rolling_mean(diff, smooth, center=True).fillna(0)
+            self.df['{}-v{}'.format(c[:-2], c[-1])] = pd.rolling_mean(
+                dist.diff(2).shift(-1) / dt, smooth, center=True)
 
     def reindex(self, frame_rate=100.):
         '''Reindex the data frame to a regularly spaced time grid.
