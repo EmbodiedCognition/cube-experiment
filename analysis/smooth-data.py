@@ -5,7 +5,6 @@ import collections
 import joblib
 import numpy as np
 import pandas as pd
-import scipy.signal
 
 import database
 
@@ -103,40 +102,13 @@ def svt(df, threshold=500, max_rmse=0.002, learning_rate=1, log_every=0):
     df[cols] = x
 
 
-def lowpass(df, freq=10., order=4):
-    '''Filter marker data using a butterworth low-pass filter.
-
-    This method alters the data in `df` in-place.
-
-    Parameters
-    ----------
-    freq : float, optional
-        Use a butterworth filter with this cutoff frequency. Defaults to
-        10Hz.
-    order : int, optional
-        Order of the butterworth filter. Defaults to 4.
-    '''
-    nyquist = 1 / (2 * pd.Series(df.index).diff().mean())
-    assert 0 < freq < nyquist
-    b, a = scipy.signal.butter(order, freq / nyquist)
-    for c in marker_channel_columns(df):
-        df[c] = scipy.signal.filtfilt(b, a, df[c])
-
-
-def smooth(args):
-    t = args.trial
+def smooth(t, root, output, frame_rate, accuracy, threshold):
     t.load()
-    t.reindex(args.frame_rate)
+    t.reindex(frame_rate)
     t.mask_dropouts()
-    svt(t.df,
-        threshold=args.threshold,
-        max_rmse=args.accuracy,
-        log_every=0)
-    lowpass(t.df, args.lowpass)
-    t.save(t.root.replace(args.root, args.output))
+    svt(t.df, threshold=threshold, max_rmse=accuracy, log_every=0)
+    t.save(t.root.replace(root, output))
 
-
-Args = collections.namedtuple('Args', 'trial root output frame_rate accuracy threshold lowpass')
 
 @climate.annotate(
     root='load data files from this directory tree',
@@ -144,13 +116,11 @@ Args = collections.namedtuple('Args', 'trial root output frame_rate accuracy thr
     frame_rate=('reindex frames to this rate', 'option', None, float),
     accuracy=('fit SVT with this accuracy', 'option', None, float),
     threshold=('SVT threshold', 'option', None, float),
-    lowpass=('lowpass filter at N Hz', 'option', None, float),
 )
-def main(root, output, frame_rate=100., accuracy=0.002, threshold=500, lowpass=10.):
-    args = root, output, frame_rate, accuracy, threshold, lowpass
+def main(root, output, frame_rate=100., accuracy=0.002, threshold=500):
     trials = database.Experiment(root).trials_matching('*')
     proc = joblib.delayed(smooth)
-    joblib.Parallel(-2)(proc(Args(t, *args)) for t in trials)
+    joblib.Parallel(-2)(proc(t, root, output, frame_rate, accuracy, threshold) for t in trials)
 
 
 if __name__ == '__main__':
