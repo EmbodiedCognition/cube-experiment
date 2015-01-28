@@ -14,7 +14,7 @@ import re
 import scipy.interpolate
 import scipy.signal
 
-logging = climate.get_logger('source')
+logging = climate.get_logger('database')
 
 
 def pickled(f, cache='pickles'):
