@@ -374,8 +374,14 @@ class Movement:
             self.df[m + '-z'] = z
         self.df['heading'] = angles
 
-    def add_velocities(self, smooth=19):
-        '''Add columns to the data that reflect the instantaneous velocity.'''
+    def add_velocities(self, smooth=11):
+        '''Add columns to the data that reflect the instantaneous velocity.
+
+        Parameters
+        ----------
+        smooth : int, optional
+            Number of frames over which to smooth velocity data. Defaults to 11.
+        '''
         dt = 2 * self.approx_delta_t
         for c in self.marker_channel_columns:
             self.df['{}-v{}'.format(c[:-2], c[-1])] = pd.rolling_mean(
