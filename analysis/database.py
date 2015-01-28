@@ -504,15 +504,6 @@ class Trial(Movement, TimedMixin, TreeMixin):
     def block_no(self):
         return self.parent.block_no
 
-    @property
-    def total_distance(self):
-        distances = []
-        _, (x, y, z) = next(self.source_trajectory.iterrows())
-        for _, (u, v, w) in self.target_trajectory.drop_duplicates().iterrows():
-            distances.append(np.linalg.norm([x - u, y - v, z - w]))
-            x, y, z = u, v, w
-        return sum(distances)
-
     def movement_from(self, source):
         '''Return frames that entail movement away from a particular cube.
 
@@ -551,18 +542,6 @@ class Trial(Movement, TimedMixin, TreeMixin):
             # isolates elements in the mask by index and sets them to False.
             mask[mask[mask][:n - 2 * frames].index] = False
         return Movement(self.df[mask])
-
-    def drop_fiddly_target_frames(self, enter_threshold=0.25, exit_threshold=0.35):
-        '''Drop fiddly target frames for all target movements in this trial.
-        '''
-        movements = []
-        for t in range(12):
-            mov = self.movement_to(t)
-            if not 0 < len(mov.df): # < 1000:
-                continue
-            mov.drop_fiddly_target_frames(enter_threshold, exit_threshold)
-            movements.append(mov)
-        self.df = pd.concat(movements)
 
     @functools.lru_cache(maxsize=100)
     def matches(self, pattern):
