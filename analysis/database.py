@@ -213,14 +213,17 @@ class Movement:
 
     @property
     def target_trajectory(self):
+        '''Get the "trajectory" of the target during this movement/trial.'''
         return self.trajectory('target')
 
     @property
     def source_trajectory(self):
+        '''Get the "trajectory" of the source during this movement/trial.'''
         return self.trajectory('source')
 
     @property
     def marker_channel_columns(self):
+        '''Get a list of the x, y, and z columns for marker data.'''
         return [c for c in self.df.columns
                 if c.startswith('marker') and
                 c[6:8].isdigit() and
@@ -228,6 +231,7 @@ class Movement:
 
     @property
     def marker_columns(self):
+        '''Get a list of the column prefixes for marker data.'''
         return sorted(set(
             c[:-2] for c in self.df.columns
             if c.startswith('marker') and
