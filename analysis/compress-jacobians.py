@@ -4,8 +4,11 @@ import climate
 import joblib
 import lmj.pca
 import numpy as np
+import os
 
 import database
+
+logging = climate.get_logger('compress')
 
 
 def jac(trial, prefix):
@@ -35,7 +38,7 @@ def main(root, output, pattern='*', count=10000, variance=0.99):
         else:
             idx = np.arange(len(jacobia))
             np.random.shuffle(idx)
-            pca.fit([jacobia[i] for i in idx[:count]])
+            pca.fit(np.asarray([jacobia[i] for i in idx[:count]]))
             pca.save(pca_file)
             for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99):
                 print('{:.1f}%: {} components'.format(100 * v, pca.num_components(v)))
