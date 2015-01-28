@@ -4,6 +4,7 @@ import climate
 import joblib
 import numpy as np
 import pandas as pd
+import scipy.signal
 
 import database
 
@@ -107,26 +108,49 @@ def svt(df, threshold=500, max_rmse=0.002, learning_rate=1, dropout_decay=0.1, l
     df[cols] = x
 
 
-def smooth(t, root, output, frame_rate, accuracy, threshold, decay):
+def lowpass(df, freq=10., order=4):
+    '''Filter marker data using a butterworth low-pass filter.
+
+    This method alters the data in `df` in-place.
+
+    Parameters
+    ----------
+    freq : float, optional
+        Use a butterworth filter with this cutoff frequency. Defaults to
+        10Hz.
+    order : int, optional
+        Order of the butterworth filter. Defaults to 4.
+    '''
+    nyquist = 1 / (2 * pd.Series(df.index).diff().mean())
+    assert 0 < freq < nyquist
+    b, a = scipy.signal.butter(order, freq / nyquist)
+    for c in marker_channel_columns(df):
+        df[c] = scipy.signal.filtfilt(b, a, df[c])
+
+
+def smooth(t, root, output, frame_rate, accuracy, threshold, decay, freq):
     t.load()
     t.reindex(frame_rate)
     t.mask_dropouts()
     svt(t.df, threshold=threshold, max_rmse=accuracy, dropout_decay=decay, log_every=0)
+    lowpass(t.df, freq)
     t.save(t.root.replace(root, output))
 
 
 @climate.annotate(
     root='load data files from this directory tree',
     output='save smoothed data files to this directory tree',
+    pattern=('process only trials matching this pattern', 'option'),
     frame_rate=('reindex frames to this rate', 'option', None, float),
     accuracy=('fit SVT with this accuracy', 'option', None, float),
     threshold=('SVT threshold', 'option', None, float),
     decay=('linear interpolation decay', 'option', None, float),
+    lowpass=('lowpass filter at N Hz', 'option', None, float),
 )
-def main(root, output, frame_rate=100., accuracy=0.002, threshold=200, decay=0.1):
-    trials = database.Experiment(root).trials_matching('*')
+def main(root, output, pattern='*', frame_rate=100, accuracy=0.002, threshold=200, decay=0.1, lowpass=10):
+    trials = database.Experiment(root).trials_matching(pattern)
     proc = joblib.delayed(smooth)
-    joblib.Parallel(-2)(proc(t, root, output, frame_rate, accuracy, threshold, decay) for t in trials)
+    joblib.Parallel(-2)(proc(t, root, output, frame_rate, accuracy, threshold, decay, lowpass) for t in trials)
 
 
 if __name__ == '__main__':
