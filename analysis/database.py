@@ -329,12 +329,9 @@ class Movement:
         This method alters the movement's `df` in-place.
         '''
         for marker in self.marker_columns:
-            start = marker + '-x'
-            stop = marker + '-c'
-            m = self.df.loc[:, start:stop]
-            x, y, z, c = (m[c] for c in m.columns)
-            bad = (c < 0) | (c > 100) | (np.sqrt(x ** 2 + y ** 2 + z ** 2) < 0.01)
-            self.df.ix[bad, start:stop] = float('nan')
+            cond = marker + '-c'
+            mask = (self.df[cond] < 0) | (self.df[cond] > 100)
+            self.df.ix[mask, marker + '-x':cond] = float('nan')
 
     def recenter(self, center):
         '''Recenter all position data relative to the given centers.
