@@ -328,7 +328,7 @@ class Movement:
         '''
         for marker in self.marker_columns:
             cond = marker + '-c'
-            mask = (self.df[cond] < 0) | (self.df[cond] > 100)
+            mask = self.df[cond].isnull() | (self.df[cond] < 0) | (self.df[cond] > 100)
             self.df.ix[mask, marker + '-x':cond] = float('nan')
 
     def recenter(self, center):
