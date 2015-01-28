@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import climate
-import collections
 import joblib
 import numpy as np
 import pandas as pd
@@ -45,7 +44,7 @@ def closest_observation(series):
         index=series.index)
 
 
-def svt(df, threshold=500, max_rmse=0.002, learning_rate=1, log_every=0):
+def svt(df, threshold=500, max_rmse=0.002, learning_rate=1, dropout_decay=0.1, log_every=0):
     '''Complete missing marker data using singular value thresholding.
 
     This method alters the given `df` in-place.
@@ -67,6 +66,9 @@ def svt(df, threshold=500, max_rmse=0.002, learning_rate=1, log_every=0):
         below this RMS error compared with measured data. Defaults to 0.002.
     learning_rate : float, optional
         Make adjustments to objective function with step size. Defaults to 1.
+    dropout_decay : float, optional
+        Weight linearly interpolated dropout frames with this decay rate.
+        Defaults to 0.1.
     log_every : int, optional
         Number of SVT iterations between logging output. Defaults to 0,
         which only logs output at the start and finish of the SVT process.
@@ -82,14 +84,17 @@ def svt(df, threshold=500, max_rmse=0.002, learning_rate=1, log_every=0):
     msg = 'SVT %d: rmse %f using %d singular values'
     log = lambda: logging.info(msg, i, rmse, len(s.nonzero()[0]))
 
-    stdevs = max_rmse * closest_observation(data.iloc[:, 0])[:, None]
     linear = data.interpolate().ffill().bfill().values
+    weights = np.zeros_like(linear)
+    for i, c in enumerate(cols):
+        weights[:, i] = np.exp(-dropout_decay * closest_observation(data[c]))
+
     s = None
     x = y = np.zeros_like(linear)
     rmse = max_rmse + 1
     i = 0
     while rmse > max_rmse:
-        err = linear - x + stdevs * np.random.randn(*x.shape)
+        err = (linear - x) * weights
         y += learning_rate * err
         u, s, v = np.linalg.svd(y, full_matrices=False)
         s = np.clip(s - threshold, 0, np.inf)
@@ -102,11 +107,11 @@ def svt(df, threshold=500, max_rmse=0.002, learning_rate=1, log_every=0):
     df[cols] = x
 
 
-def smooth(t, root, output, frame_rate, accuracy, threshold):
+def smooth(t, root, output, frame_rate, accuracy, threshold, decay):
     t.load()
     t.reindex(frame_rate)
     t.mask_dropouts()
-    svt(t.df, threshold=threshold, max_rmse=accuracy, log_every=0)
+    svt(t.df, threshold=threshold, max_rmse=accuracy, dropout_decay=decay, log_every=0)
     t.save(t.root.replace(root, output))
 
 
@@ -116,11 +121,12 @@ def smooth(t, root, output, frame_rate, accuracy, threshold):
     frame_rate=('reindex frames to this rate', 'option', None, float),
     accuracy=('fit SVT with this accuracy', 'option', None, float),
     threshold=('SVT threshold', 'option', None, float),
+    decay=('linear interpolation decay', 'option', None, float),
 )
-def main(root, output, frame_rate=100., accuracy=0.002, threshold=500):
+def main(root, output, frame_rate=100., accuracy=0.002, threshold=200, decay=0.1):
     trials = database.Experiment(root).trials_matching('*')
     proc = joblib.delayed(smooth)
-    joblib.Parallel(-2)(proc(t, root, output, frame_rate, accuracy, threshold) for t in trials)
+    joblib.Parallel(-2)(proc(t, root, output, frame_rate, accuracy, threshold, decay) for t in trials)
 
 
 if __name__ == '__main__':
