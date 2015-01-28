@@ -204,8 +204,8 @@ class Movement:
 
     @property
     def approx_delta_t(self):
-        return (np.asarray(self.df.index[1:]) -
-                np.asarray(self.df.index[:-1])).mean()
+        '''Compute the approximate time interval between successive frames.'''
+        return pd.Series(self.df.index).diff().mean()
 
     @property
     def effector_trajectory(self):
