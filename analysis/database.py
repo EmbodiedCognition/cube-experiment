@@ -434,21 +434,32 @@ class Movement:
             Distance (in meters) from target above which a subject is considered
             to be no longer touching the target. Defaults to 0.5.
         '''
-        changes = self.df.target.diff(1).fillna(0).nonzero()
+        starts = self.df.target.diff(1).fillna(0) != 0
+        ends = self.df.target.diff(-1).fillna(0) != 0
 
         dist = self.distance_to_target
-        rate = pd.rolling_mean(dist.diff(2).shift(-1), 19, center=True)
 
-        minima = (dist < enter_threshold) & (rate > 0)
+        rate = dist.diff(2).shift(-1)
+        rate[starts | ends] = float('nan')
+        rate = pd.rolling_mean(rate.interpolate(), 11, center=True)
+
+        candidates = (dist < enter_threshold) & (rate > 0)
         stayings = dist < exit_threshold
 
-        mask = pd.Series([False] * len(minima), index=dist.index)
-        for i in minima[minima].index:
-            mask = mask
+        ends.iloc[-1] = True
+        mask = pd.Series([False] * len(dist), index=dist.index)
+        a = 0
+        for b in ends[ends].index:
+            for i in candidates[a:b][candidates].index:
+                if sum(stayings[i:b]) > 0.5 * len(stayings[i:b]):
+                    mask[i:b] = True
+                    a = b
+                    break
+            a = b
 
         self.df[mask] = float('nan')
-        logging.info('masked %d fiddly frames -- %.1f %% of trial',
-                     sum(mask), 100 * sum(mask) / len(self.df))
+        logging.info('masked %d fiddly of %d frames -- %.1f %% of trial',
+                     sum(mask), len(mask), 100 * sum(mask) / len(mask))
 
     def convert_markers_to_z_scores(self):
         '''Convert marker positions to z-scores.'''
