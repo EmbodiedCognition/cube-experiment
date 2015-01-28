@@ -30,6 +30,7 @@ def main(root,
          svt_frames=5):
     with plots.space() as ax:
         for t in database.Experiment(root).trials_matching(pattern):
+            t.load()
             if cubes == 'yes':
                 plots.show_cubes(ax, t)
                 cubes = False
