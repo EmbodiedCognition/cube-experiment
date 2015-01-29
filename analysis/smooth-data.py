@@ -45,7 +45,7 @@ def closest_observation(series):
         index=series.index)
 
 
-def svt(df, threshold=500, max_rmse=0.002, learning_rate=1, dropout_decay=0.1, log_every=0):
+def svt(df, threshold=500, max_rmse=0.002, learning_rate=1, dropout_decay=0.1, window=10):
     '''Complete missing marker data using singular value thresholding.
 
     This method alters the given `df` in-place.
@@ -70,42 +70,49 @@ def svt(df, threshold=500, max_rmse=0.002, learning_rate=1, dropout_decay=0.1, l
     dropout_decay : float, optional
         Weight linearly interpolated dropout frames with this decay rate.
         Defaults to 0.1.
-    log_every : int, optional
-        Number of SVT iterations between logging output. Defaults to 0,
-        which only logs output at the start and finish of the SVT process.
+    window : int, optional
+        Model windows of this many consecutive frames. Defaults to 10.
     '''
     cols = marker_channel_columns(df, min_filled=0.01)
     data = df[cols]
-    num_entries = data.shape[0] * data.shape[1]
+    num_frames, num_channels = data.shape
+    num_entries = num_frames * num_channels
     logging.info('SVT: missing %d of (%d, %d) = %d values (%.1f%% filled)',
                  num_entries - data.count().sum(),
-                 data.shape[0], data.shape[1], num_entries,
+                 num_frames, num_channels, num_entries,
                  100 * data.count().sum() / num_entries)
-
-    msg = 'SVT %d: rmse %f using %d singular values'
-    log = lambda: logging.info(msg, i, rmse, len(s.nonzero()[0]))
 
     linear = data.interpolate().ffill().bfill().values
     weights = np.zeros_like(linear)
     for i, c in enumerate(cols):
         weights[:, i] = np.exp(-dropout_decay * closest_observation(data[c]))
 
+    t = np.concatenate([linear[i:num_frames-(window-i)] for i in range(window+1)], axis=1)
+    w = np.concatenate([weights[i:num_frames-(window-i)] for i in range(window+1)], axis=1)
+
+    logging.info('SVT: processing windowed data %s', t.shape)
+
     s = None
-    x = y = np.zeros_like(linear)
+    x = y = np.zeros_like(t)
     rmse = max_rmse + 1
     i = 0
     while rmse > max_rmse:
-        err = (linear - x) * weights
+        err = (t - x) * w
         y += learning_rate * err
         u, s, v = np.linalg.svd(y, full_matrices=False)
         s = np.clip(s - threshold, 0, np.inf)
-        x = np.dot(u, np.dot(np.diag(s), v))
+        x = np.dot(u * s, v)
         rmse = np.sqrt((err * err).mean().mean())
-        if log_every and i % log_every == 0: log()
+        logging.info('SVT %d: rmse %f using %d pcs %s',
+                     i, rmse, len(s.nonzero()[0]), s[:10].astype('i'))
         i += 1
-    log()
 
-    df[cols] = x
+    df[cols] = np.concatenate([
+        x[:, :num_channels],
+        x[num_frames - window:, window * num_channels:],
+    ], axis=0)
+
+    return df
 
 
 def lowpass(df, freq=10., order=4):
@@ -128,15 +135,6 @@ def lowpass(df, freq=10., order=4):
         df[c] = scipy.signal.filtfilt(b, a, df[c])
 
 
-def smooth(t, root, output, frame_rate, accuracy, threshold, decay, freq):
-    t.load()
-    t.reindex(frame_rate)
-    t.mask_dropouts()
-    svt(t.df, threshold=threshold, max_rmse=accuracy, dropout_decay=decay, log_every=0)
-    lowpass(t.df, freq)
-    t.save(t.root.replace(root, output))
-
-
 @climate.annotate(
     root='load data files from this directory tree',
     output='save smoothed data files to this directory tree',
@@ -145,12 +143,31 @@ def smooth(t, root, output, frame_rate, accuracy, threshold, decay, freq):
     accuracy=('fit SVT with this accuracy', 'option', None, float),
     threshold=('SVT threshold', 'option', None, float),
     decay=('linear interpolation decay', 'option', None, float),
-    lowpass=('lowpass filter at N Hz', 'option', None, float),
+    freq=('lowpass filter at N Hz', 'option', None, float),
+    window=('process windows of T frames', 'option', None, float),
 )
-def main(root, output, pattern='*', frame_rate=100, accuracy=0.002, threshold=200, decay=0.1, lowpass=10):
-    trials = database.Experiment(root).trials_matching(pattern)
-    proc = joblib.delayed(smooth)
-    joblib.Parallel(-2)(proc(t, root, output, frame_rate, accuracy, threshold, decay, lowpass) for t in trials)
+def main(root, output, pattern='*', frame_rate=100, accuracy=0.002, threshold=200, decay=0.1, freq=10, window=5):
+    for subject in database.Experiment(root).subjects:
+        trials = [t for t in subject.trials if t.matches(pattern)]
+        if not trials:
+            continue
+        for t in trials:
+            t.load()
+            t.reindex(frame_rate)
+            t.mask_dropouts()
+        # here we make a huge df containing all data for this subject.
+        keys = [(t.block.key, t.key) for t in trials]
+        df = svt(pd.concat([t.df for t in trials], keys=keys),
+                 threshold=threshold,
+                 max_rmse=accuracy,
+                 learning_rate=1.5,
+                 dropout_decay=decay,
+                 window=window - 1,
+        )
+        for t in trials:
+            t.df = df.ix[(t.block.key, t.key), :]
+            lowpass(t.df, freq)
+            t.save(t.root.replace(root, output))
 
 
 if __name__ == '__main__':
