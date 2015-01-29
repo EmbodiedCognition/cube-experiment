@@ -419,10 +419,9 @@ class Movement:
 
         One way to do this would be based on the mean/stdev of the trial
         durations, but I haven't found a strong enough pattern there to be
-        reliable. Instead, here we use the smoothed movement data and some
-        heuristics about what is likely to constitute a target-touch event to
-        exclude these "fiddly" frames from the end of a movement toward a
-        particular target.
+        reliable. Instead, here we use the movement data and some heuristics
+        about what is likely to constitute a target-touch event to exclude these
+        "fiddly" frames from the end of a movement toward a particular target.
 
         Parameters
         ----------
@@ -454,8 +453,8 @@ class Movement:
             for i in candidates[a:b][candidates].index:
                 if sum(stayings[i:b]) > 0.5 * len(stayings[i:b]):
                     mask[i:b] = True
-                    a = b
                     break
+            mask[b] = True
             a = b
 
         self.df[mask] = float('nan')
