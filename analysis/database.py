@@ -138,8 +138,8 @@ class Subject(TimedMixin, TreeMixin):
     '''
 
     def __init__(self, experiment, basename):
-        self.experiment = self.parent = experiment
         self.basename = basename
+        self.experiment = self.parent = experiment
         self.blocks = self.children = [
             Block(self, f) for f in sorted(os.listdir(self.root))]
         logging.info('subject %s: %d blocks, %d trials',
@@ -174,8 +174,9 @@ class Block(TimedMixin, TreeMixin):
     '''
 
     def __init__(self, subject, basename):
-        self.subject = self.parent = subject
         self.basename = basename
+        self.experiment = subject.experiment
+        self.subject = self.parent = subject
         self.trials = self.children = [
             Trial(self, f) for f in sorted(os.listdir(self.root))]
 
@@ -507,9 +508,10 @@ class Trial(Movement, TimedMixin, TreeMixin):
     '''
 
     def __init__(self, block, basename):
-        super().__init__()
-        self.parent = block
         self.basename = basename
+        self.experiment = block.subject.experiment
+        self.subject = block.subject
+        self.block = self.parent = block
 
     @property
     def trial_no(self):
@@ -517,7 +519,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
 
     @property
     def block_no(self):
-        return self.parent.block_no
+        return self.block.block_no
 
     def movement_from(self, source):
         '''Return frames that entail movement away from a particular cube.
@@ -565,8 +567,8 @@ class Trial(Movement, TimedMixin, TreeMixin):
     def load(self):
         self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
         logging.info('%s %s %s: loaded trial %s',
-                     self.parent.parent.key,
-                     self.parent.key,
+                     self.subject.key,
+                     self.block.key,
                      self.key,
                      self.df.shape)
         self._debug('loaded data counts')
@@ -589,8 +591,8 @@ class Trial(Movement, TimedMixin, TreeMixin):
         with gzip.open(path, 'w') as handle:
             handle.write(s.getvalue().encode('utf-8'))
         logging.info('%s %s %s: saved to %s',
-                     self.parent.parent.key,
-                     self.parent.key,
+                     self.subject.key,
+                     self.block.key,
                      self.key,
                      path)
 
