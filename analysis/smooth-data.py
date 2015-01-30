@@ -46,7 +46,7 @@ def closest_observation(series):
         index=series.index)
 
 
-def svt(df, threshold=500, tol=1e-3, learning_rate=1.5, dropout_decay=0.1, window=10):
+def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, dropout_decay=0.1, window=10):
     '''Complete missing marker data using singular value thresholding.
 
     This method alters the given `df` in-place.
@@ -61,8 +61,9 @@ def svt(df, threshold=500, tol=1e-3, learning_rate=1.5, dropout_decay=0.1, windo
     ----------
     df : pd.DataFrame
         Data frame for source data.
-    threshold : int, optional
-        Threshold for singular values. Defaults to 500.
+    threshold : float, optional
+        Threshold for singular values. Defaults to the "natural" falling-off
+        point in the singular value spectrum.
     tol : float, optional
         Continue the reconstruction process until reconstructed data is
         within this relative tolerance threshold. Defaults to 1e-3.
@@ -96,13 +97,20 @@ def svt(df, threshold=500, tol=1e-3, learning_rate=1.5, dropout_decay=0.1, windo
 
     logging.info('SVT: processing windowed data %s', t.shape)
 
+    # if the threshold is none, set it using the falloff point in the spectrum.
+    if threshold is None:
+        s = pd.Series(pypropack.svdp(
+            t, k=20, kmax=200, compute_u=False, compute_v=False)[0])
+        threshold = s[s.diff().diff().shift(-1).argmax()]
+        logging.info('SVT: using threshold %.2f', threshold)
+
     x = None
     y = 0 + t
     i = topk = 0
     inck = 5
     while True:
         i += 1
-        topk += 1
+        topk += inck
         u, s, v = pypropack.svdp(y, k=topk, kmax=10 * topk)
         while s[-1] > threshold:
             topk += inck
@@ -157,7 +165,7 @@ def lowpass(df, freq=10., order=4):
     freq=('lowpass filter at N Hz', 'option', None, float),
     window=('process windows of T frames', 'option', None, float),
 )
-def main(root, output, pattern='*', frame_rate=100, tol=1e-3, threshold=200, decay=0.1, freq=10, window=5):
+def main(root, output, pattern='*', frame_rate=100, tol=0.01, threshold=None, decay=0.1, freq=10, window=5):
     for subject in database.Experiment(root).subjects:
         trials = [t for t in subject.trials if t.matches(pattern)]
         if not trials:
