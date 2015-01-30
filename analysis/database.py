@@ -201,6 +201,9 @@ class Movement:
     def __init__(self, df=None):
         self.df = df
 
+    def __getitem__(self, item):
+        return self.df.__getitem__(item)
+
     @property
     def approx_delta_t(self):
         '''Compute the approximate time interval between successive frames.'''
