@@ -166,26 +166,23 @@ def lowpass(df, freq=10., order=4):
     window=('process windows of T frames', 'option', None, float),
 )
 def main(root, output, pattern='*', frame_rate=100, tol=0.01, threshold=None, decay=0.1, freq=10, window=20):
-    for subject in database.Experiment(root).subjects:
-        trials = [t for t in subject.trials if t.matches(pattern)]
-        if not trials:
-            continue
-        for t in trials:
-            t.load()
-            t.reindex(frame_rate)
-            t.mask_dropouts()
-        # here we make a huge df containing all data for this subject.
-        keys = [(t.block.key, t.key) for t in trials]
-        df = svt(pd.concat([t.df for t in trials], keys=keys),
-                 threshold=threshold,
-                 tol=tol,
-                 dropout_decay=decay,
-                 window=window - 1,
-        )
-        for t in trials:
-            t.df = df.ix[(t.block.key, t.key), :]
-            lowpass(t.df, freq)
-            t.save(t.root.replace(root, output))
+    trials = list(database.Experiment(root).trials_matching(pattern))
+    for t in trials:
+        t.load()
+        t.reindex(frame_rate)
+        t.mask_dropouts()
+    # here we make a huge df containing all matching trial data.
+    keys = [(t.block.key, t.key) for t in trials]
+    df = svt(pd.concat([t.df for t in trials], keys=keys),
+             threshold=threshold,
+             tol=tol,
+             dropout_decay=decay,
+             window=window - 1,
+    )
+    for t in trials:
+        t.df = df.ix[(t.block.key, t.key), :]
+        lowpass(t.df, freq)
+        t.save(t.root.replace(root, output))
 
 
 if __name__ == '__main__':
