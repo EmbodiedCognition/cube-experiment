@@ -2,7 +2,6 @@ import climate
 import collections
 import datetime
 import fnmatch
-import functools
 import gzip
 import hashlib
 import io
@@ -92,7 +91,6 @@ class TreeMixin:
     def root(self):
         return os.path.join(self.parent.root, self.basename)
 
-    @functools.lru_cache(maxsize=100)
     def matches(self, pattern):
         return any(c.matches(pattern) for c in self.children)
 
@@ -114,7 +112,8 @@ class Experiment:
     @property
     def trials(self):
         for s in self.subjects:
-            yield from s.trials
+            for t in s.trials:
+                yield t
 
     def trials_matching(self, pattern):
         for t in self.trials:
@@ -150,7 +149,8 @@ class Subject(TimedMixin, TreeMixin):
     @property
     def trials(self):
         for b in self.blocks:
-            yield from b.trials
+            for t in b.trials:
+                yield t
 
 
 class Block(TimedMixin, TreeMixin):
@@ -562,7 +562,6 @@ class Trial(Movement, TimedMixin, TreeMixin):
             mask[mask[mask][:n - 2 * frames].index] = False
         return Movement(self.df[mask])
 
-    @functools.lru_cache(maxsize=100)
     def matches(self, pattern):
         return fnmatch.fnmatch(self.root, pattern)
 
