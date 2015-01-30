@@ -75,7 +75,7 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, dropout_decay=0.1, wind
     window : int, optional
         Model windows of this many consecutive frames. Defaults to 10.
     '''
-    cols = marker_channel_columns(df, min_filled=0.01)
+    cols = [c for c in marker_channel_columns(df, min_filled=0.01) if 'r-fing-pinky' not in c]
     data = df[cols]
     num_frames, num_channels = data.shape
     num_entries = num_frames * num_channels
@@ -165,7 +165,7 @@ def lowpass(df, freq=10., order=4):
     freq=('lowpass filter at N Hz', 'option', None, float),
     window=('process windows of T frames', 'option', None, float),
 )
-def main(root, output, pattern='*', frame_rate=100, tol=0.01, threshold=None, decay=0.1, freq=10, window=5):
+def main(root, output, pattern='*', frame_rate=100, tol=0.01, threshold=None, decay=0.1, freq=10, window=20):
     for subject in database.Experiment(root).subjects:
         trials = [t for t in subject.trials if t.matches(pattern)]
         if not trials:
