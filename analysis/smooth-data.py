@@ -151,7 +151,7 @@ def lowpass(df, freq=10., order=4):
     assert 0 < freq < nyquist
     b, a = scipy.signal.butter(order, freq / nyquist)
     for c in marker_channel_columns(df):
-        df[c] = scipy.signal.filtfilt(b, a, df[c])
+        df.loc[:, c] = scipy.signal.filtfilt(b, a, df[c])
 
 
 @climate.annotate(
