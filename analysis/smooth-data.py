@@ -128,7 +128,7 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, dropout_decay=0.1, wind
 
     df[cols] = np.concatenate([
         x[:, :num_channels],
-        x[num_frames - window:, window * num_channels:],
+        x[num_frames - 2 * window:, window * num_channels:],
     ], axis=0)
 
     return df
