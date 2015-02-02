@@ -63,7 +63,7 @@ MARKERS = [
 COLUMNS = ['{}-{}'.format(m, c) for m in MARKERS for c in 'xyz']
 
 
-def compress(trial, target, variance=0.995):
+def compress(trial, output, variance=0.995):
     trial.load()
     trial.mask_fiddly_target_frames()
     #trial.df.dropna(thresh=len(COLUMNS), inplace=True)
@@ -73,7 +73,7 @@ def compress(trial, target, variance=0.995):
     body.make_body_relative()
 
     pca = lmj.pca.PCA(filename=os.path.join(
-        target, 'pca-body-relative-{}.npz'.format(trial.subject)))
+        output, 'pca-body-relative-{}.npz'.format(trial.subject)))
     for i, v in pca.encode(body.df[COLUMNS].values, variance).T:
         trial.df['body-pc{:02d}'] = pd.Series(v, index=trial.df.index)
 
@@ -82,15 +82,21 @@ def compress(trial, target, variance=0.995):
     goal.make_target_relative()
 
     pca = lmj.pca.PCA(filename=os.path.join(
-        target, 'pca-goal-relative-{}.npz'.format(trial.subject)))
+        output, 'pca-goal-relative-{}.npz'.format(trial.subject)))
     for i, v in pca.encode(goal.df[COLUMNS].values, variance).T:
         trial.df['goal-pc{:02d}'] = pd.Series(v, index=trial.df.index)
 
     trial.df.drop(trial.marker_channel_columns, axis=1, inplace=True)
-    trial.save(t.root.replace(t.root, target))
+    trial.save(t.root.replace(t.root, output))
 
 
-def main(root, subject, target, variance=0.999):
+@climate.annotate(
+    root='load data files from this directory tree',
+    output='save smoothed data files to this directory tree',
+    subject='process trials for this subject',
+    variance=('retain this fraction of the variance', 'option', None, float),
+)
+def main(root, subject, output, variance=0.999):
     trials = database.Experiment(root).trials_matching('*-{}/*/*'.format(subject))
     keys = [(t.block.key, t.key) for t in trials]
     for t in trials:
@@ -103,7 +109,7 @@ def main(root, subject, target, variance=0.999):
     pca.fit(body.df[COLUMNS])
     for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999):
         print('{:.1f}%: {} body components'.format(100 * v, pca.num_components(v)))
-    pca.save(os.path.join(target, 'pca-body-relative-{}.npz'.format(subject)))
+    pca.save(os.path.join(output, 'pca-body-relative-{}.npz'.format(subject)))
 
     goal = database.Movement(pd.concat([t.df.copy() for t in trials], keys=keys))
     goal.make_target_relative()
@@ -112,9 +118,9 @@ def main(root, subject, target, variance=0.999):
     pca.fit(goal.df[COLUMNS])
     for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999):
         print('{:.1f}%: {} goal components'.format(100 * v, pca.num_components(v)))
-    pca.save(os.path.join(target, 'pca-goal-relative-{}.npz'.format(subject)))
+    pca.save(os.path.join(output, 'pca-goal-relative-{}.npz'.format(subject)))
 
-    joblib.Parallel(-1)(joblib.delayed(compress)(t, target, variance) for t in trials)
+    joblib.Parallel(-1)(joblib.delayed(compress)(t, output, variance) for t in trials)
 
 
 if __name__ == '__main__':
