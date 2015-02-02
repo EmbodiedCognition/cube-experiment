@@ -185,7 +185,32 @@ class Block(TimedMixin, TreeMixin):
         return int(re.match(r'-block(\d\d)', self.root).group(1))
 
 
-class Movement:
+class DF:
+    '''A base class for something that holds a pandas dataframe.
+
+    This class has "mirror" methods that send things to the underlying dataframe.
+    '''
+
+    def __init__(self, df=None):
+        self.df = df
+
+    @property
+    def columns(self):
+        return self.df.columns
+
+    @property
+    def index(self):
+        return self.df.index
+
+    @property
+    def shape(self):
+        return self.df.shape
+
+    def dropna(self, *args, **kwargs):
+        return self.df.dropna(*args, **kwargs)
+
+
+class Movement(DF):
     '''Base class for representing and manipulating movement data.
 
     One movement basically consists of a bunch of motion capture frames sampled
@@ -198,16 +223,10 @@ class Movement:
     sequences of consecutive frames for some interesting event, etc.
     '''
 
-    def __init__(self, df=None):
-        self.df = df
-
-    def __getitem__(self, item):
-        return self.df.__getitem__(item)
-
     @property
     def approx_delta_t(self):
         '''Compute the approximate time interval between successive frames.'''
-        return pd.Series(self.df.index).diff().mean()
+        return pd.Series(self.index).diff().mean()
 
     @property
     def effector_trajectory(self):
@@ -226,7 +245,7 @@ class Movement:
     @property
     def marker_channel_columns(self):
         '''Get a list of the x, y, and z columns for marker data.'''
-        return [c for c in self.df.columns
+        return [c for c in self.columns
                 if c.startswith('marker') and
                 c[6:8].isdigit() and
                 c[-1] in 'xyz']
@@ -235,7 +254,7 @@ class Movement:
     def marker_columns(self):
         '''Get a list of the column prefixes for marker data.'''
         return sorted(set(
-            c[:-2] for c in self.df.columns
+            c[:-2] for c in self.columns
             if c.startswith('marker') and
             c[6:8].isdigit() and
             c[-2:] == '-c'))
@@ -262,7 +281,7 @@ class Movement:
         '''
         if not isinstance(marker, str):
             marker = 'marker{:02d}'.format(int(marker))
-        matches = [c for c in self.df.columns if marker in c and c.endswith('-x')]
+        matches = [c for c in self.columns if marker in c and c.endswith('-x')]
         if len(matches) == 0:
             raise KeyError(marker)
         if len(matches) == 1:
@@ -292,8 +311,8 @@ class Movement:
             If there is more than one match for the marker search string.
         '''
         marker = self.lookup_marker(marker)
-        z = np.asarray(self.df.loc[:, marker + '-x':marker + '-z'])
-        return pd.DataFrame(z, index=self.df.index, columns=list('xyz'))
+        z = self.df.loc[:, marker + '-x':marker + '-z'].values
+        return pd.DataFrame(z, index=self.index, columns=list('xyz'))
 
     @property
     def distance_to_target(self):
@@ -332,7 +351,8 @@ class Movement:
         '''
         for marker in self.marker_columns:
             cond = marker + '-c'
-            mask = self.df[cond].isnull() | (self.df[cond] < 0) | (self.df[cond] > 100)
+            c = self.df[cond]
+            mask = c.isnull() | (c < 0) | (c > 100)
             self.df.ix[mask, marker + '-x':cond] = float('nan')
 
     def recenter(self, center):
@@ -347,7 +367,7 @@ class Movement:
             A data frame containing the center of our x values. This frame must
             have 'x', 'y', and 'z' columns.
         '''
-        for c in self.df.columns:
+        for c in self.columns:
             if c.endswith('-x'): self.df[c] -= center.x
             if c.endswith('-y'): self.df[c] -= center.y
             if c.endswith('-z'): self.df[c] -= center.z
@@ -401,7 +421,7 @@ class Movement:
         frame_rate : float, optional
             Frame rate for desired time offsets. Defaults to 100Hz.
         '''
-        posts = np.arange(0, self.df.index[-1], 1. / frame_rate)
+        posts = np.arange(0, self.index[-1], 1. / frame_rate)
         df = self.df.reindex(posts, method='bfill', limit=1)
         for c in df.columns:
             if not c.startswith('marker'):
@@ -571,7 +591,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
                      self.subject.key,
                      self.block.key,
                      self.key,
-                     self.df.shape)
+                     self.shape)
         self._debug('loaded data counts')
         return self
 
@@ -599,6 +619,6 @@ class Trial(Movement, TimedMixin, TreeMixin):
 
     def _debug(self, label):
         logging.debug(label)
-        for c in self.df.columns:
+        for c in self.columns:
             logging.debug('%30s: %6d of %6d values',
                           c, self.df[c].count(), len(self.df[c]))
