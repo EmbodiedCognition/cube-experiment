@@ -66,52 +66,55 @@ COLUMNS = ['{}-{}'.format(m, c) for m in MARKERS for c in 'xyz']
 def compress(trial, target, variance=0.995):
     trial.load()
     trial.mask_fiddly_target_frames()
-    trial.df = trial.df.dropna()
+    #trial.df.dropna(thresh=len(COLUMNS), inplace=True)
 
     body = database.Trial(trial.parent, trial.basename)
     body.df = trial.df.copy()
     body.make_body_relative()
-    pca = lmj.pca.PCA(filename=os.path.join(target, 'pca-body.npz'))
+
+    pca = lmj.pca.PCA(filename=os.path.join(
+        target, 'pca-body-relative-{}.npz'.format(trial.subject)))
     for i, v in pca.encode(body.df[COLUMNS].values, variance).T:
         trial.df['body-pc{:02d}'] = pd.Series(v, index=trial.df.index)
 
     goal = database.Trial(trial.parent, trial.basename)
     goal.df = trial.df.copy()
     goal.make_target_relative()
+
+    pca = lmj.pca.PCA(filename=os.path.join(
+        target, 'pca-goal-relative-{}.npz'.format(trial.subject)))
     for i, v in pca.encode(goal.df[COLUMNS].values, variance).T:
         trial.df['goal-pc{:02d}'] = pd.Series(v, index=trial.df.index)
 
+    trial.df.drop(trial.marker_channel_columns, axis=1, inplace=True)
+    trial.save(t.root.replace(t.root, target))
 
-def main(root, target, pattern='*'):
-    trials = list(database.Experiment(root).trials_matching(pattern))
+
+def main(root, subject, target, variance=0.999):
+    trials = database.Experiment(root).trials_matching('*-{}/*/*'.format(subject))
+    keys = [(t.block.key, t.key) for t in trials]
     for t in trials:
         t.load()
-    # here we make a huge df containing all matching trial data.
-    keys = [(t.block.key, t.key) for t in trials]
 
-    df = pd.concat([t.df for t in trials], keys=keys)
-
-    body = database.Trial(trial.parent, trial.basename)
-    body.df = df.copy()
+    body = database.Movement(pd.concat([t.df.copy() for t in trials], keys=keys))
     body.make_body_relative()
 
     pca = lmj.pca.PCA()
     pca.fit(body.df[COLUMNS])
     for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999):
         print('{:.1f}%: {} body components'.format(100 * v, pca.num_components(v)))
-    pca.save(os.path.join(target, 'pca-body-relative.npz'))
+    pca.save(os.path.join(target, 'pca-body-relative-{}.npz'.format(subject)))
 
-    goal = database.Trial(trial.parent, trial.basename)
-    goal.df = df.copy()
+    goal = database.Movement(pd.concat([t.df.copy() for t in trials], keys=keys))
     goal.make_target_relative()
 
     pca = lmj.pca.PCA()
-    pca.fit(goals.df[COLUMNS])
+    pca.fit(goal.df[COLUMNS])
     for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999):
         print('{:.1f}%: {} goal components'.format(100 * v, pca.num_components(v)))
-    pca.save(os.path.join(target, 'pca-goal-relative.npz'))
+    pca.save(os.path.join(target, 'pca-goal-relative-{}.npz'.format(subject)))
 
-    joblib.Parallel(-2)(joblib.delayed(compress)(t, target, variance) for t in trials)
+    joblib.Parallel(-1)(joblib.delayed(compress)(t, target, variance) for t in trials)
 
 
 if __name__ == '__main__':
