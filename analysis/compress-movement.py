@@ -106,7 +106,7 @@ def main(root, output, pattern='*', variance=0.99):
     trials = list(database.Experiment(root).trials_matching(pattern))
     keys = [(t.block.key, t.key) for t in trials]
 
-    pca_trials = [random.choice(ts) for s, ts in
+    pca_trials = [random.choice(list(ts)) for s, ts in
                   itertools.groupby(trials, key=lambda t: t.subject.key)]
     for t in pca_trials:
         t.load()
