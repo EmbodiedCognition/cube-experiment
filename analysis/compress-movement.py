@@ -71,28 +71,44 @@ def compress(trial, output, variance=0.995):
     #trial.df.dropna(thresh=len(COLUMNS), inplace=True)
 
     init = [c for c in trial.columns if c[:6] in ('source', 'target')]
-    df = pd.DataFrame(trial.df[init], index=trial.df.index)
-
-    body = database.Trial(trial.parent, trial.basename)
-    body.df = trial.df.copy()
-    body.make_body_relative()
+    out = pd.DataFrame(trial.df[init], index=trial.df.index)
 
     def p(w):
         return os.path.join(output, 'pca-{}-relative.npz'.format(w))
 
+    # encode body-relative data.
+    body = database.Trial(trial.parent, trial.basename)
+    body.df = trial.df.copy()
+    body.make_body_relative()
+    body_pcs = 0
+
     pca = lmj.pca.PCA(filename=p('body'))
     for i, v in enumerate(pca.encode(body.df[COLUMNS].values, retain=variance).T):
-        df['body-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
+        out['body-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
+        body_pcs = i
 
+    # encode goal-relative data.
     goal = database.Trial(trial.parent, trial.basename)
     goal.df = trial.df.copy()
     goal.make_target_relative()
+    goal_pcs = 0
 
     pca = lmj.pca.PCA(filename=p('goal'))
     for i, v in enumerate(pca.encode(goal.df[COLUMNS].values, retain=variance).T):
-        df['goal-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
+        out['goal-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
+        goal_pcs = i
 
-    trial.df = df
+    # add columns for the jacobian.
+    for bpc in range(body_pcs):
+        db = out['body-pc{:02d}'.format(bpc)].diff()
+        db[db == 0] = float('nan')
+        for gpc in range(goal_pcs):
+            dg = out['goal-pc{:02d}'.format(gpc)].diff()
+            dg[dg == 0] = float('nan')
+            out['jac-fwd-{:02d}/{:02d}'.format(gpc, bpc)] = dg / db
+            out['jac-inv-{:02d}/{:02d}'.format(bpc, gpc)] = db / dg
+
+    trial.df = out[sorted(out.columns)]
     trial.save(trial.root.replace(trial.experiment.root, output))
 
 
