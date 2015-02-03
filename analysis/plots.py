@@ -74,15 +74,10 @@ def skeleton(ax, trial, frame, **kwargs):
         ['l-ilium', 'l-knee', 'l-shin', 'l-ankle', 'l-heel', 'l-mt-outer', 'l-mt-inner'],
         ['r-ilium', 'r-knee', 'r-shin', 'r-ankle', 'r-heel', 'r-mt-outer', 'r-mt-inner'],
         # arms
-        ['t3', 'r-collar', 'r-shoulder', 'r-elbow', 'r-wrist', 'r-mc-inner'],
-        ['t3', 'l-collar', 'l-shoulder', 'l-elbow', 'l-wrist', 'l-mc-inner'],
-        # hands
-        ['r-fing-pinky', 'r-mc-outer', 'r-fing-ring', 'r-mc-outer', 'r-fing-middle',
-         'r-mc-inner', 'r-fing-index', 'r-mc-inner', 'r-thumb-base', 'r-thumb-tip'],
-        ['l-fing-pinky', 'l-mc-outer', 'l-fing-ring', 'l-mc-outer', 'l-fing-middle',
-         'l-mc-inner', 'l-fing-index', 'l-mc-inner', 'l-thumb-base', 'l-thumb-tip'],
+        ['t3', 'r-collar', 'r-shoulder', 'r-elbow', 'r-wrist', 'r-mc-inner', 'r-fing-index'],
+        ['t3', 'l-collar', 'l-shoulder', 'l-elbow', 'l-wrist', 'l-mc-inner', 'l-fing-index'],
         # head + torso
-        ['r-head-front', 'r-head-mid', 'l-head-mid', 'l-head-back', 'l-head-front', 'r-head-back',
+        ['r-head-front', 'l-head-back', 'l-head-front', 'r-head-back',
          't3', 't9', 'l-ilium', 'r-ilium', 'r-hip', 'l-hip', 'abdomen', 'sternum'],
     ):
         xs, ys, zs = [], [], []
