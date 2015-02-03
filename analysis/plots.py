@@ -69,6 +69,7 @@ def skeleton(ax, trial, frame, **kwargs):
         ox, oz = kwargs.pop('offset')
         sckwargs.pop('offset')
     idx = trial.df.index[frame]
+    labels = {}
     for segment in (
         # legs
         ['l-ilium', 'l-knee', 'l-shin', 'l-ankle', 'l-heel', 'l-mt-outer', 'l-mt-inner'],
@@ -86,8 +87,11 @@ def skeleton(ax, trial, frame, **kwargs):
             xs.append(traj.x[idx] + ox)
             ys.append(traj.y[idx])
             zs.append(traj.z[idx] + oz)
+            labels[marker] = (traj.x[idx] + ox, traj.y[idx], traj.z[idx] + oz)
         ax.scatter(xs, zs, zs=ys, s=20, lw=0, **sckwargs)
         ax.plot(xs, zs, zs=ys, **kwargs)
+    for m, (x, y, z) in labels.items():
+        ax.text(x, z + 0.1, y + 0.1, str(m))
 
 
 u, v = np.mgrid[0:2 * np.pi:17j, 0:np.pi:13j]
