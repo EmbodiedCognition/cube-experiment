@@ -121,9 +121,10 @@ def compress(trial, output, variance=0.995):
 def main(root, output, pattern='*', variance=0.99):
     trials = list(database.Experiment(root).trials_matching(pattern))
     keys = [(t.block.key, t.key) for t in trials]
+    probes = (variance, 0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999)
 
     # choose N trials per subject to compute the principal components.
-    N = 2
+    N = 3
     pca_trials = []
     for s, ts in itertools.groupby(trials, key=lambda t: t.subject.key):
         ts = list(ts)
@@ -138,7 +139,7 @@ def main(root, output, pattern='*', variance=0.99):
 
     pca = lmj.pca.PCA()
     pca.fit(body.df[COLUMNS])
-    for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999):
+    for v in probes:
         print('{:.1f}%: {} body components'.format(100 * v, pca.num_components(v)))
     pca.save(os.path.join(output, 'pca-body-relative.npz'))
 
@@ -147,7 +148,7 @@ def main(root, output, pattern='*', variance=0.99):
 
     pca = lmj.pca.PCA()
     pca.fit(goal.df[COLUMNS])
-    for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999):
+    for v in probes:
         print('{:.1f}%: {} goal components'.format(100 * v, pca.num_components(v)))
     pca.save(os.path.join(output, 'pca-goal-relative.npz'))
 
