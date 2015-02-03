@@ -77,8 +77,7 @@ def compress(trial, output, variance=0.995):
     body.make_body_relative()
 
     def p(w):
-        s = 'pca-{}-relative-{}.npz'.format(w, trial.subject.key)
-        return os.path.join(output, s)
+        return os.path.join(output, 'pca-{}-relative.npz'.format(w))
 
     pca = lmj.pca.PCA(filename=p('body'))
     for i, v in enumerate(pca.encode(body.df[COLUMNS].values, retain=variance).T):
@@ -102,7 +101,7 @@ def compress(trial, output, variance=0.995):
     pattern='process trials matching this subject pattern',
     variance=('retain this fraction of the variance', 'option', None, float),
 )
-def main(root, output, pattern='*f/*/*', variance=0.99):
+def main(root, output, pattern='*', variance=0.99):
     trials = list(database.Experiment(root).trials_matching(pattern))
     keys = [(t.block.key, t.key) for t in trials]
     for t in trials:
@@ -115,7 +114,7 @@ def main(root, output, pattern='*f/*/*', variance=0.99):
     pca.fit(body.df[COLUMNS])
     for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999):
         print('{:.1f}%: {} body components'.format(100 * v, pca.num_components(v)))
-    pca.save(os.path.join(output, 'pca-body-relative-{}.npz'.format(trials[0].subject.key)))
+    pca.save(os.path.join(output, 'pca-body-relative.npz'))
 
     goal = database.Movement(pd.concat([t.df for t in trials], keys=keys))
     goal.make_target_relative()
@@ -124,7 +123,7 @@ def main(root, output, pattern='*f/*/*', variance=0.99):
     pca.fit(goal.df[COLUMNS])
     for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999):
         print('{:.1f}%: {} goal components'.format(100 * v, pca.num_components(v)))
-    pca.save(os.path.join(output, 'pca-goal-relative-{}.npz'.format(trials[0].subject.key)))
+    pca.save(os.path.join(output, 'pca-goal-relative.npz'))
 
     joblib.Parallel(-1)(joblib.delayed(compress)(t, output, variance) for t in trials)
 
