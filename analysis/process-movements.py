@@ -85,7 +85,7 @@ def compress(trial, output, variance=0.995):
     pca = lmj.pca.PCA(filename=p('body'))
     for i, v in enumerate(pca.encode(body.df[COLUMNS].values, retain=variance).T):
         out['body-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
-        body_pcs = i
+        body_pcs += 1
 
     # encode goal-relative data.
     goal = database.Trial(trial.parent, trial.basename)
@@ -96,7 +96,7 @@ def compress(trial, output, variance=0.995):
     pca = lmj.pca.PCA(filename=p('goal'))
     for i, v in enumerate(pca.encode(goal.df[COLUMNS].values, retain=variance).T):
         out['goal-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
-        goal_pcs = i
+        goal_pcs += 1
 
     # add columns for the jacobian.
     for bpc in range(body_pcs):
@@ -105,8 +105,8 @@ def compress(trial, output, variance=0.995):
         for gpc in range(goal_pcs):
             dg = out['goal-pc{:02d}'.format(gpc)].diff()
             dg[dg == 0] = float('nan')
-            out['jac-fwd-{:02d}/{:02d}'.format(gpc, bpc)] = dg / db
-            out['jac-inv-{:02d}/{:02d}'.format(bpc, gpc)] = db / dg
+            out['jac-g{:02d}/b{:02d}'.format(gpc, bpc)] = dg / db
+            out['jac-b{:02d}/g{:02d}'.format(bpc, gpc)] = db / dg
 
     trial.df = out[sorted(out.columns)]
     trial.save(trial.root.replace(trial.experiment.root, output))
