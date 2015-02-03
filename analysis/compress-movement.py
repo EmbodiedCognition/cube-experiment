@@ -106,10 +106,16 @@ def main(root, output, pattern='*', variance=0.99):
     trials = list(database.Experiment(root).trials_matching(pattern))
     keys = [(t.block.key, t.key) for t in trials]
 
-    pca_trials = [random.choice(list(ts)) for s, ts in
-                  itertools.groupby(trials, key=lambda t: t.subject.key)]
-    for t in pca_trials:
-        t.load()
+    # choose N trials per subject to compute the principal components.
+    N = 2
+    pca_trials = []
+    for s, ts in itertools.groupby(trials, key=lambda t: t.subject.key):
+        ts = list(ts)
+        idx = list(range(len(ts)))
+        random.shuffle(idx)
+        for i in idx[:N]:
+            pca_trials.append(ts[i])
+            ts[i].load()
 
     body = database.Movement(pd.concat([t.df for t in pca_trials]))
     body.make_body_relative()
