@@ -3,8 +3,9 @@
 import climate
 import joblib
 import lmj.pca
-import os
 import numpy as np
+import os
+import pandas as pd
 
 import database
 
@@ -68,57 +69,61 @@ def compress(trial, output, variance=0.995):
     trial.mask_fiddly_target_frames()
     #trial.df.dropna(thresh=len(COLUMNS), inplace=True)
 
+    df = pd.DataFrame(trial.df[['source', 'target']], index=trial.df.index)
+
     body = database.Trial(trial.parent, trial.basename)
     body.df = trial.df.copy()
     body.make_body_relative()
 
-    pca = lmj.pca.PCA(filename=os.path.join(
-        output, 'pca-body-relative-{}.npz'.format(trial.subject)))
-    for i, v in pca.encode(body.df[COLUMNS].values, variance).T:
-        trial.df['body-pc{:02d}'] = pd.Series(v, index=trial.df.index)
+    def p(w):
+        s = 'pca-{}-relative-{}.npz'.format(w, trial.subject.key)
+        return os.path.join(output, s)
+
+    pca = lmj.pca.PCA(filename=p('body'))
+    for i, v in enumerate(pca.encode(body.df[COLUMNS].values, retain=variance).T):
+        df['body-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
 
     goal = database.Trial(trial.parent, trial.basename)
     goal.df = trial.df.copy()
     goal.make_target_relative()
 
-    pca = lmj.pca.PCA(filename=os.path.join(
-        output, 'pca-goal-relative-{}.npz'.format(trial.subject)))
-    for i, v in pca.encode(goal.df[COLUMNS].values, variance).T:
-        trial.df['goal-pc{:02d}'] = pd.Series(v, index=trial.df.index)
+    pca = lmj.pca.PCA(filename=p('goal'))
+    for i, v in enumerate(pca.encode(goal.df[COLUMNS].values, retain=variance).T):
+        df['goal-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
 
-    trial.df.drop(trial.marker_channel_columns, axis=1, inplace=True)
-    trial.save(t.root.replace(t.root, output))
+    trial.df = df
+    trial.save(trial.root.replace(trial.experiment.root, output))
 
 
 @climate.annotate(
     root='load data files from this directory tree',
-    output='save smoothed data files to this directory tree',
-    subject='process trials for this subject',
+    output='save compressed data to this directory tree',
+    pattern='process trials matching this subject pattern',
     variance=('retain this fraction of the variance', 'option', None, float),
 )
-def main(root, subject, output, variance=0.999):
-    trials = database.Experiment(root).trials_matching('*-{}/*/*'.format(subject))
+def main(root, output, pattern='*f/*/*', variance=0.99):
+    trials = list(database.Experiment(root).trials_matching(pattern))
     keys = [(t.block.key, t.key) for t in trials]
     for t in trials:
         t.load()
 
-    body = database.Movement(pd.concat([t.df.copy() for t in trials], keys=keys))
+    body = database.Movement(pd.concat([t.df for t in trials], keys=keys))
     body.make_body_relative()
 
     pca = lmj.pca.PCA()
     pca.fit(body.df[COLUMNS])
     for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999):
         print('{:.1f}%: {} body components'.format(100 * v, pca.num_components(v)))
-    pca.save(os.path.join(output, 'pca-body-relative-{}.npz'.format(subject)))
+    pca.save(os.path.join(output, 'pca-body-relative-{}.npz'.format(trials[0].subject.key)))
 
-    goal = database.Movement(pd.concat([t.df.copy() for t in trials], keys=keys))
+    goal = database.Movement(pd.concat([t.df for t in trials], keys=keys))
     goal.make_target_relative()
 
     pca = lmj.pca.PCA()
     pca.fit(goal.df[COLUMNS])
     for v in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999):
         print('{:.1f}%: {} goal components'.format(100 * v, pca.num_components(v)))
-    pca.save(os.path.join(output, 'pca-goal-relative-{}.npz'.format(subject)))
+    pca.save(os.path.join(output, 'pca-goal-relative-{}.npz'.format(trials[0].subject.key)))
 
     joblib.Parallel(-1)(joblib.delayed(compress)(t, output, variance) for t in trials)
 
