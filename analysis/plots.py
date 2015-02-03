@@ -93,18 +93,6 @@ def skeleton(ax, trial, frame, **kwargs):
             zs.append(traj.z[idx] + oz)
         ax.scatter(xs, zs, zs=ys, s=20, c='#111111', lw=0, **sckwargs)
         ax.plot(xs, zs, zs=ys, **kwargs)
-    for segment in (
-        # rotational quantities
-        ['r-ilium', 'r-hip'],
-        ['l-ilium', 'l-hip'],
-    ):
-        xs, ys, zs = [], [], []
-        for marker in segment:
-            traj = trial.trajectory(marker)
-            xs.append(traj.x[idx] + ox)
-            ys.append(traj.y[idx])
-            zs.append(traj.z[idx] + oz)
-        ax.plot(xs, zs, zs=ys, c='#238933', lw=3, alpha=0.9)
 
 
 u, v = np.mgrid[0:2 * np.pi:17j, 0:np.pi:13j]
