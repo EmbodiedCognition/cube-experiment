@@ -114,9 +114,9 @@ def compress(trial, output, variance=0.995):
 
 @climate.annotate(
     root='load data files from this directory tree',
-    output='save compressed data to this directory tree',
-    pattern='process trials matching this subject pattern',
-    variance=('retain this fraction of the variance', 'option', None, float),
+    output='save encoded data to this directory tree',
+    pattern='process trials matching this pattern',
+    variance=('retain this fraction of variance', 'option', None, float),
 )
 def main(root, output, pattern='*', variance=0.99):
     trials = list(database.Experiment(root).trials_matching(pattern))
