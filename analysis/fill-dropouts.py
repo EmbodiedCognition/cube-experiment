@@ -99,10 +99,29 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, window=10):
     filled = data.fillna(0).values
     weights = (~data.isnull()).values.astype(float)
 
+    # here we create windows of consecutive data frames, all stacked together
+    # along axis 1. for example, with 10 2-dimensional frames, we can stack them
+    # into windows of length 4 as follows:
+    #
+    #     data   windows
+    # 0   A B    A B C D E F G H
+    # 1   C D    C D E F G H I J
+    # 2   E F    E F G H I J K L
+    # 3   G H    G H I J K L M N
+    # 4   I J    I J K L M N O P
+    # 5   K L    K L M N O P Q R
+    # 6   M N    M N O P Q R S T
+    # 7   O P
+    # 8   Q R
+    # 9   S T
+    #
+    # this is more or less like a convolution with a sliding rectangular window.
+    # this stacked data matrix is the one we'll want to fill in the SVT process
+    # below.
     w = np.asfortranarray(np.concatenate([
-        weights[i:num_frames-(window-i)] for i in range(window+1)], axis=1).astype('f'))
+        weights[i:num_frames-(window-1-i)] for i in range(window)], axis=1).astype('f'))
     t = np.asfortranarray(np.concatenate([
-        filled[i:num_frames-(window-i)] for i in range(window+1)], axis=1).astype('f'))
+        filled[i:num_frames-(window-1-i)] for i in range(window)], axis=1).astype('f'))
     norm_t = np.linalg.norm(t)
 
     logging.info('SVT: processing windowed data %s', t.shape)
@@ -136,10 +155,28 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, window=10):
             break
         y += learning_rate * delta
 
-    df[cols] = np.concatenate([
-        x[:, :num_channels],
-        x[num_frames - 2 * window:, window * num_channels:],
-    ], axis=0)
+    def avg(xs):
+        return np.mean(list(xs), axis=0)
+
+    def idx(a, b=None):
+        return slice(df.index[a], df.index[b] if b else df.index[a])
+
+    parts = np.split(x, window, axis=1)
+    w = window - 1
+    f = num_frames - 1
+
+    # super confusing bit! above, we created "window" duplicates of our data,
+    # each offset by 1 frame, and stacked (along axis 1) into a big ol matrix.
+    # here we unpack these duplicates, remove their offsets, take the
+    # average of the appropriate values, and put them back in the data frame.
+    #
+    # this is particularly difficult because the first and last "window" frames
+    # only appear a small number of times in the overall matrix. but the
+    # indexing shenanigans below seem to do the trick.
+    df.loc[idx(w, f - w), cols] = avg(parts[j][w - j:f + 1 - w - j] for j in range(window))
+    for i in range(window):
+        df.loc[idx(i), cols] = avg(parts[i - j][j] for j in range(i, -1, -1))
+        df.loc[idx(f - i), cols] = avg(parts[w - (i - j + 1)][-j] for j in range(i+1, 0, -1))
 
     return df
 
