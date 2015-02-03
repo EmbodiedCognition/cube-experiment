@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
 import climate
+import itertools
 import joblib
 import lmj.pca
-import numpy as np
 import os
 import pandas as pd
+import random
 
 import database
 
@@ -104,10 +105,13 @@ def compress(trial, output, variance=0.995):
 def main(root, output, pattern='*', variance=0.99):
     trials = list(database.Experiment(root).trials_matching(pattern))
     keys = [(t.block.key, t.key) for t in trials]
-    for t in trials:
+
+    pca_trials = [random.choice(ts) for s, ts in
+                  itertools.groupby(trials, key=lambda t: t.subject.key)]
+    for t in pca_trials:
         t.load()
 
-    body = database.Movement(pd.concat([t.df for t in trials], keys=keys))
+    body = database.Movement(pd.concat([t.df for t in pca_trials]))
     body.make_body_relative()
 
     pca = lmj.pca.PCA()
@@ -116,7 +120,7 @@ def main(root, output, pattern='*', variance=0.99):
         print('{:.1f}%: {} body components'.format(100 * v, pca.num_components(v)))
     pca.save(os.path.join(output, 'pca-body-relative.npz'))
 
-    goal = database.Movement(pd.concat([t.df for t in trials], keys=keys))
+    goal = database.Movement(pd.concat([t.df for t in pca_trials]))
     goal.make_target_relative()
 
     pca = lmj.pca.PCA()
