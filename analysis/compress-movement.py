@@ -69,7 +69,8 @@ def compress(trial, output, variance=0.995):
     trial.mask_fiddly_target_frames()
     #trial.df.dropna(thresh=len(COLUMNS), inplace=True)
 
-    df = pd.DataFrame(trial.df[['source', 'target']], index=trial.df.index)
+    init = [c for c in trial.columns if c[:6] in ('source', 'target')]
+    df = pd.DataFrame(trial.df[init], index=trial.df.index)
 
     body = database.Trial(trial.parent, trial.basename)
     body.df = trial.df.copy()
