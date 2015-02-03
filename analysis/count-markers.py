@@ -13,8 +13,8 @@ def count(trial):
     trial.mask_dropouts()
     markers = []
     for m in trial.marker_columns:
-        s = trial[m + '-c']
-        if s.count() > 0.01 * len(s):
+        s = trial.df[m + '-c']
+        if s.count() > 0.1 * len(s):
             markers.append(m)
     return markers
 
