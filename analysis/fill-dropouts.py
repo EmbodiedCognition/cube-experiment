@@ -3,47 +3,64 @@
 import climate
 import joblib
 import numpy as np
+import os
 import pandas as pd
 import pypropack
 import scipy.signal
+import tempfile
 
 import database
 
 logging = climate.get_logger('fill')
 
+MARKERS = [
+    'marker00-r-head-back',
+    'marker01-r-head-front',
+    'marker02-l-head-front',
+    'marker03-l-head-back',
+    'marker06-r-collar',
+    'marker07-r-shoulder',
+    'marker08-r-elbow',
+    'marker09-r-wrist',
+    'marker13-r-fing-index',
+    'marker14-r-mc-outer',
+    'marker15-r-mc-inner',
+    'marker16-r-thumb-base',
+    'marker17-r-thumb-tip',
+    'marker18-l-collar',
+    'marker19-l-shoulder',
+    'marker20-l-elbow',
+    'marker21-l-wrist',
+    'marker25-l-fing-index',
+    'marker26-l-mc-outer',
+    'marker27-l-mc-inner',
+    'marker28-l-thumb-base',
+    'marker29-l-thumb-tip',
+    'marker30-abdomen',
+    'marker31-sternum',
+    'marker32-t3',
+    'marker33-t9',
+    'marker34-l-ilium',
+    'marker35-r-ilium',
+    'marker36-r-hip',
+    'marker37-r-knee',
+    'marker38-r-shin',
+    'marker39-r-ankle',
+    'marker40-r-heel',
+    'marker41-r-mt-outer',
+    'marker42-r-mt-inner',
+    'marker43-l-hip',
+    'marker44-l-knee',
+    'marker45-l-shin',
+    'marker46-l-ankle',
+    'marker47-l-heel',
+    'marker48-l-mt-outer',
+    'marker49-l-mt-inner',
+]
 
 def marker_channel_columns(df, min_filled=0):
     '''Return the names of columns that contain marker data.'''
-    return [c for c in df.columns
-            if c.startswith('marker') and
-            c[-1] in 'xyz' and
-            df[c].count() > min_filled * len(df)]
-
-
-def closest_observation(series):
-    '''Compute the distance (in frames) to the nearest non-dropout frame.
-
-    Parameters
-    ----------
-    series : pd.Series
-        A Series holding a single channel of mocap data.
-
-    Returns
-    -------
-    closest : pd.Series
-        An integer series containing, for each frame, the number of frames
-        to the nearest non-dropout frame.
-    '''
-    drops = series.isnull()
-    closest_l = [0]
-    for d in drops:
-        closest_l.append(1 + closest_l[-1] if d else 0)
-    closest_r = [0]
-    for d in drops[::-1]:
-        closest_r.append(1 + closest_r[-1] if d else 0)
-    return pd.Series(
-        list(map(min, closest_l[1:], reversed(closest_r[1:]))),
-        index=series.index)
+    return [c for c in df.columns if c[:-2] in MARKERS and c[-1] in 'xyz']
 
 
 def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, window=10):
@@ -72,7 +89,7 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, window=10):
     window : int, optional
         Model windows of this many consecutive frames. Defaults to 10.
     '''
-    cols = [c for c in marker_channel_columns(df, min_filled=0.01) if 'r-fing-pinky' not in c]
+    cols = marker_channel_columns(df)
     data = df[cols]
     num_frames, num_channels = data.shape
     num_entries = num_frames * num_channels
@@ -84,10 +101,26 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, window=10):
     filled = data.fillna(0).values
     weights = (~data.isnull()).values.astype(float)
 
+    '''
+    no, wf = tempfile.mkstemp()
+    os.close(no)
+    with open(wf, 'wb') as h:
+        np.save(h, np.asfortranarray(np.concatenate([
+            weights[i:num_frames-(window-i)] for i in range(window+1)], axis=1).astype('f')))
+
+    no, tf = tempfile.mkstemp()
+    os.close(no)
+    with open(tf, 'wb') as h:
+        np.save(h, np.asfortranarray(np.concatenate([
+            filled[i:num_frames-(window-i)] for i in range(window+1)], axis=1).astype('f')))
+
+    w = np.load(wf, mmap_mode='r')
+    t = np.load(tf, mmap_mode='r')
+    '''
     w = np.asfortranarray(np.concatenate([
-        weights[i:num_frames-(window-i)] for i in range(window+1)], axis=1))
-    t = w * np.asfortranarray(np.concatenate([
-        filled[i:num_frames-(window-i)] for i in range(window+1)], axis=1))
+        weights[i:num_frames-(window-i)] for i in range(window+1)], axis=1).astype('f'))
+    t = np.asfortranarray(np.concatenate([
+        filled[i:num_frames-(window-i)] for i in range(window+1)], axis=1).astype('f'))
     norm_t = np.linalg.norm(t)
 
     logging.info('SVT: processing windowed data %s', t.shape)
@@ -113,13 +146,16 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, window=10):
         s = np.clip(s - threshold, 0, np.inf)
         topk = len(s.nonzero()[0])
         x = np.dot(u * s, v)
-        delta = t - w * x
+        delta = w * (t - x)
         err = np.linalg.norm(delta) / norm_t
         logging.info('SVT %d: error %f using %d pcs %s',
                      i, err, topk, s[:10].astype('i'))
         if err < tol:
             break
         y += learning_rate * delta
+
+    #os.unlink(wf)
+    #os.unlink(tf)
 
     df[cols] = np.concatenate([
         x[:, :num_channels],
@@ -165,12 +201,21 @@ def main(root, output, pattern='*', frame_rate=100, tol=0.02, threshold=None, fr
         t.load()
         t.reindex(frame_rate)
         t.mask_dropouts()
+        for c in t.columns:
+            if c.startswith('marker') and c[:-2] not in MARKERS:
+                del t.df[c]
+
     # here we make a huge df containing all matching trial data.
     keys = [(t.block.key, t.key) for t in trials]
-    df = svt(pd.concat([t.df for t in trials], keys=keys),
-             threshold=threshold, tol=tol, window=window - 1)
+    df = pd.concat([t.df for t in trials], keys=keys)
+
+    # free up some memory.
+    [t.clear() for t in trials]
+
+    df = svt(df, threshold=threshold, tol=tol, window=window - 1)
+
     for t in trials:
-        t.df = df.ix[(t.block.key, t.key), :]
+        t.df = df.loc[(t.block.key, t.key), :].copy()
         lowpass(t.df, freq)
         t.save(t.root.replace(root, output))
 
