@@ -9,7 +9,7 @@ import scipy.signal
 
 import database
 
-logging = climate.get_logger('smooth')
+logging = climate.get_logger('fill')
 
 
 def marker_channel_columns(df, min_filled=0):
@@ -46,7 +46,7 @@ def closest_observation(series):
         index=series.index)
 
 
-def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, dropout_decay=0.1, window=10):
+def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, window=10):
     '''Complete missing marker data using singular value thresholding.
 
     This method alters the given `df` in-place.
@@ -69,9 +69,6 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, dropout_decay=0.1, wind
         within this relative tolerance threshold. Defaults to 1e-3.
     learning_rate : float, optional
         Make adjustments to objective function with step size. Defaults to 1.5.
-    dropout_decay : float, optional
-        Weight linearly interpolated dropout frames with this decay rate.
-        Defaults to 0.1.
     window : int, optional
         Model windows of this many consecutive frames. Defaults to 10.
     '''
@@ -84,15 +81,13 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, dropout_decay=0.1, wind
                  num_frames, num_channels, num_entries,
                  100 * data.count().sum() / num_entries)
 
-    linear = data.interpolate().ffill().bfill().values
-    weights = np.zeros_like(linear)
-    for i, c in enumerate(cols):
-        weights[:, i] = np.exp(-dropout_decay * closest_observation(data[c]))
+    filled = data.fillna(0).values
+    weights = (~data.isnull()).values.astype(float)
 
     w = np.asfortranarray(np.concatenate([
         weights[i:num_frames-(window-i)] for i in range(window+1)], axis=1))
     t = w * np.asfortranarray(np.concatenate([
-        linear[i:num_frames-(window-i)] for i in range(window+1)], axis=1))
+        filled[i:num_frames-(window-i)] for i in range(window+1)], axis=1))
     norm_t = np.linalg.norm(t)
 
     logging.info('SVT: processing windowed data %s', t.shape)
@@ -118,7 +113,7 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, dropout_decay=0.1, wind
         s = np.clip(s - threshold, 0, np.inf)
         topk = len(s.nonzero()[0])
         x = np.dot(u * s, v)
-        delta = t - x * w
+        delta = t - w * x
         err = np.linalg.norm(delta) / norm_t
         logging.info('SVT %d: error %f using %d pcs %s',
                      i, err, topk, s[:10].astype('i'))
@@ -161,11 +156,10 @@ def lowpass(df, freq=10., order=4):
     frame_rate=('reindex frames to this rate', 'option', None, float),
     tol=('fit SVT with this error tolerance', 'option', None, float),
     threshold=('SVT threshold', 'option', None, float),
-    decay=('linear interpolation decay', 'option', None, float),
     freq=('lowpass filter at N Hz', 'option', None, float),
     window=('process windows of T frames', 'option', None, float),
 )
-def main(root, output, pattern='*', frame_rate=100, tol=0.01, threshold=None, decay=0.1, freq=10, window=20):
+def main(root, output, pattern='*', frame_rate=100, tol=0.02, threshold=None, freq=10, window=20):
     trials = list(database.Experiment(root).trials_matching(pattern))
     for t in trials:
         t.load()
@@ -174,11 +168,7 @@ def main(root, output, pattern='*', frame_rate=100, tol=0.01, threshold=None, de
     # here we make a huge df containing all matching trial data.
     keys = [(t.block.key, t.key) for t in trials]
     df = svt(pd.concat([t.df for t in trials], keys=keys),
-             threshold=threshold,
-             tol=tol,
-             dropout_decay=decay,
-             window=window - 1,
-    )
+             threshold=threshold, tol=tol, window=window - 1)
     for t in trials:
         t.df = df.ix[(t.block.key, t.key), :]
         lowpass(t.df, freq)
