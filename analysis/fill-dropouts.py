@@ -170,11 +170,10 @@ def lowpass(df, freq=10., order=4):
     pattern=('process only trials matching this pattern', 'option'),
     frame_rate=('reindex frames to this rate', 'option', None, float),
     tol=('fit SVT with this error tolerance', 'option', None, float),
-    threshold=('SVT threshold', 'option', None, float),
+    window=('process windows of T frames', 'option', None, int),
     freq=('lowpass filter at N Hz', 'option', None, float),
-    window=('process windows of T frames', 'option', None, float),
 )
-def main(root, output, pattern='*', frame_rate=100, tol=0.02, threshold=None, freq=10, window=20):
+def main(root, output, pattern='*', frame_rate=100, tol=0.02, window=30, freq=10):
     trials = list(database.Experiment(root).trials_matching(pattern))
     for t in trials:
         t.load()
@@ -191,7 +190,7 @@ def main(root, output, pattern='*', frame_rate=100, tol=0.02, threshold=None, fr
     # free up some memory.
     [t.clear() for t in trials]
 
-    df = svt(df, threshold=threshold, tol=tol, window=window - 1)
+    df = svt(df, tol=tol, window=window)
 
     for t in trials:
         t.df = df.loc[(t.block.key, t.key), :].copy()
