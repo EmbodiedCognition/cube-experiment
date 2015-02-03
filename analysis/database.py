@@ -106,7 +106,8 @@ class Experiment:
 
     def __init__(self, root):
         self.root = root
-        self.subjects = [Subject(self, f) for f in sorted(os.listdir(root))]
+        self.subjects = [Subject(self, f) for f in sorted(os.listdir(root))
+                         if os.path.isdir(os.path.join(root, f))]
         self.df = None
 
     @property
