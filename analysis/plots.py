@@ -86,7 +86,7 @@ def skeleton(ax, trial, frame, **kwargs):
             xs.append(traj.x[idx] + ox)
             ys.append(traj.y[idx])
             zs.append(traj.z[idx] + oz)
-        ax.scatter(xs, zs, zs=ys, s=20, c='#111111', lw=0, **sckwargs)
+        ax.scatter(xs, zs, zs=ys, s=20, lw=0, **sckwargs)
         ax.plot(xs, zs, zs=ys, **kwargs)
 
 
