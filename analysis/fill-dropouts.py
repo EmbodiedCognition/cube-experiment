@@ -3,11 +3,9 @@
 import climate
 import joblib
 import numpy as np
-import os
 import pandas as pd
 import pypropack
 import scipy.signal
-import tempfile
 
 import database
 
@@ -101,22 +99,6 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, window=10):
     filled = data.fillna(0).values
     weights = (~data.isnull()).values.astype(float)
 
-    '''
-    no, wf = tempfile.mkstemp()
-    os.close(no)
-    with open(wf, 'wb') as h:
-        np.save(h, np.asfortranarray(np.concatenate([
-            weights[i:num_frames-(window-i)] for i in range(window+1)], axis=1).astype('f')))
-
-    no, tf = tempfile.mkstemp()
-    os.close(no)
-    with open(tf, 'wb') as h:
-        np.save(h, np.asfortranarray(np.concatenate([
-            filled[i:num_frames-(window-i)] for i in range(window+1)], axis=1).astype('f')))
-
-    w = np.load(wf, mmap_mode='r')
-    t = np.load(tf, mmap_mode='r')
-    '''
     w = np.asfortranarray(np.concatenate([
         weights[i:num_frames-(window-i)] for i in range(window+1)], axis=1).astype('f'))
     t = np.asfortranarray(np.concatenate([
@@ -153,9 +135,6 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, window=10):
         if err < tol:
             break
         y += learning_rate * delta
-
-    #os.unlink(wf)
-    #os.unlink(tf)
 
     df[cols] = np.concatenate([
         x[:, :num_channels],
