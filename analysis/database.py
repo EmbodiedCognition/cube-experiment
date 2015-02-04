@@ -412,7 +412,7 @@ class Movement(DF):
             self.df['{}-v{}'.format(c[:-2], c[-1])] = pd.rolling_mean(
                 self.df[c].diff(2).shift(-1) / dt, smooth, center=True)
 
-    def reindex(self, frame_rate=100.):
+    def reindex(self, frame_rate=100., max_interpolate=10):
         '''Reindex the data frame to a regularly spaced time grid.
 
         The existing `df` attribute of this Trial will be replaced.
@@ -427,6 +427,10 @@ class Movement(DF):
         for c in df.columns:
             if not c.startswith('marker'):
                 df[c] = df[c].bfill().ffill()
+            elif c[-1] in 'xyz':
+                df[c] = df[c].interpolate(limit=max_interpolate)
+            elif c[-1] in 'c':
+                df[c] = df[c].fillna(value=1.2345, limit=max_interpolate)
         self.df = df
         self._debug('counts after reindexing')
 
