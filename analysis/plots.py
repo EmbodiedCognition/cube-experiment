@@ -51,7 +51,7 @@ def show_cubes(ax, trial, target_num=None):
     ax.scatter(xs, zs, ys, marker='o', s=200, color='#111111', linewidth=0, alpha=0.7)
 
 
-def skeleton(ax, trial, frame, **kwargs):
+def skeleton(ax, trial, frame, show_labels=(), **kwargs):
     '''Plot a skeleton based on a frame of the given trial.
 
     Parameters
@@ -59,6 +59,7 @@ def skeleton(ax, trial, frame, **kwargs):
     ax : Axes
     trial : Movement
     frame : int or float
+    show_labels : sequence of string
     '''
     sckwargs = dict(kwargs)
     for k in ('lw', 'linewidth'):
@@ -91,7 +92,8 @@ def skeleton(ax, trial, frame, **kwargs):
         ax.scatter(xs, zs, zs=ys, s=20, lw=0, **sckwargs)
         ax.plot(xs, zs, zs=ys, **kwargs)
     for m, (x, y, z) in labels.items():
-        ax.text(x, z + 0.1, y + 0.1, str(m))
+        if m in show_labels:
+            ax.text(x, z + 0.05, y + 0.05, str(m))
 
 
 u, v = np.mgrid[0:2 * np.pi:17j, 0:np.pi:13j]
