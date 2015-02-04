@@ -12,58 +12,6 @@ import database
 
 logging = climate.get_logger('compress')
 
-MARKERS = [
-    'marker00-r-head-back',
-    'marker01-r-head-front',
-    'marker02-l-head-front',
-    'marker03-l-head-back',
-    'marker06-r-collar',
-    'marker07-r-shoulder',
-    'marker08-r-elbow',
-    'marker09-r-wrist',
-    'marker11-r-fing-ring',
-    'marker12-r-fing-middle',
-    'marker13-r-fing-index',
-    'marker14-r-mc-outer',
-    'marker15-r-mc-inner',
-    'marker16-r-thumb-base',
-    'marker17-r-thumb-tip',
-    'marker18-l-collar',
-    'marker19-l-shoulder',
-    'marker20-l-elbow',
-    'marker21-l-wrist',
-    'marker22-l-fing-pinky',
-    'marker23-l-fing-ring',
-    'marker24-l-fing-middle',
-    'marker25-l-fing-index',
-    'marker26-l-mc-outer',
-    'marker27-l-mc-inner',
-    'marker28-l-thumb-base',
-    'marker29-l-thumb-tip',
-    'marker30-abdomen',
-    'marker31-sternum',
-    'marker32-t3',
-    'marker33-t9',
-    'marker34-l-ilium',
-    'marker35-r-ilium',
-    'marker36-r-hip',
-    'marker37-r-knee',
-    'marker38-r-shin',
-    'marker39-r-ankle',
-    'marker40-r-heel',
-    'marker41-r-mt-outer',
-    'marker42-r-mt-inner',
-    'marker43-l-hip',
-    'marker44-l-knee',
-    'marker45-l-shin',
-    'marker46-l-ankle',
-    'marker47-l-heel',
-    'marker48-l-mt-outer',
-    'marker49-l-mt-inner',
-]
-
-COLUMNS = ['{}-{}'.format(m, c) for m in MARKERS for c in 'xyz']
-
 
 def compress(trial, output, variance=0.995):
     trial.load()
@@ -82,8 +30,16 @@ def compress(trial, output, variance=0.995):
     body.make_body_relative()
     body_pcs = 0
 
+    out['body-center-x'] = body['center-x']
+    out['body-center-y'] = body['center-y']
+    out['body-center-z'] = body['center-z']
+    out['body-heading'] = body['heading']
+    for c in body.columns:
+        if c.endswith('-mean') or c.endswith('-std'):
+            out[c] = body[c]
+
     pca = lmj.pca.PCA(filename=p('body'))
-    for i, v in enumerate(pca.encode(body.df[COLUMNS].values, retain=variance).T):
+    for i, v in enumerate(pca.encode(body.df[body.marker_channel_columns].values, retain=variance).T):
         out['body-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
         body_pcs += 1
 
@@ -93,8 +49,13 @@ def compress(trial, output, variance=0.995):
     goal.make_target_relative()
     goal_pcs = 0
 
+    out['goal-center-x'] = goal['center-x']
+    out['goal-center-y'] = goal['center-y']
+    out['goal-center-z'] = goal['center-z']
+    out['goal-heading'] = goal['heading']
+
     pca = lmj.pca.PCA(filename=p('goal'))
-    for i, v in enumerate(pca.encode(goal.df[COLUMNS].values, retain=variance).T):
+    for i, v in enumerate(pca.encode(goal.df[goal.marker_channel_columns].values, retain=variance).T):
         out['goal-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
         goal_pcs += 1
 
@@ -119,9 +80,12 @@ def compress(trial, output, variance=0.995):
     variance=('retain this fraction of variance', 'option', None, float),
 )
 def main(root, output, pattern='*', variance=0.99):
+    probes = [0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999]
+    if variance not in probes:
+        probes = sorted([variance] + probes)
+
     trials = list(database.Experiment(root).trials_matching(pattern))
     keys = [(t.block.key, t.key) for t in trials]
-    probes = (variance, 0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999)
 
     # choose N trials per subject to compute the principal components.
     N = 3
@@ -138,7 +102,7 @@ def main(root, output, pattern='*', variance=0.99):
     body.make_body_relative()
 
     pca = lmj.pca.PCA()
-    pca.fit(body.df[COLUMNS])
+    pca.fit(body.df[body.marker_channel_columns])
     for v in probes:
         print('{:.1f}%: {} body components'.format(100 * v, pca.num_components(v)))
     pca.save(os.path.join(output, 'pca-body-relative.npz'))
@@ -147,7 +111,7 @@ def main(root, output, pattern='*', variance=0.99):
     goal.make_target_relative()
 
     pca = lmj.pca.PCA()
-    pca.fit(goal.df[COLUMNS])
+    pca.fit(goal.df[goal.marker_channel_columns])
     for v in probes:
         print('{:.1f}%: {} goal components'.format(100 * v, pca.num_components(v)))
     pca.save(os.path.join(output, 'pca-goal-relative.npz'))
