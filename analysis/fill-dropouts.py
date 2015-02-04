@@ -11,6 +11,7 @@ import database
 
 logging = climate.get_logger('fill')
 
+# this is the set of markers that gets included in our output.
 MARKERS = [
     'marker00-r-head-back',
     'marker01-r-head-front',
@@ -20,14 +21,22 @@ MARKERS = [
     'marker07-r-shoulder',
     'marker08-r-elbow',
     'marker09-r-wrist',
+    'marker12-r-fing-middle',
     'marker13-r-fing-index',
+    'marker14-r-mc-outer',
     'marker15-r-mc-inner',
+    'marker16-r-thumb-base',
+    'marker17-r-thumb-tip',
     'marker18-l-collar',
     'marker19-l-shoulder',
     'marker20-l-elbow',
     'marker21-l-wrist',
+    'marker24-l-fing-middle',
     'marker25-l-fing-index',
+    'marker26-l-mc-outer',
     'marker27-l-mc-inner',
+    'marker28-l-thumb-base',
+    'marker29-l-thumb-tip',
     'marker30-abdomen',
     'marker31-sternum',
     'marker32-t3',
@@ -49,6 +58,7 @@ MARKERS = [
     'marker48-l-mt-outer',
     'marker49-l-mt-inner',
 ]
+
 
 def marker_channel_columns(df, min_filled=0):
     '''Return the names of columns that contain marker data.'''
@@ -143,8 +153,8 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, window=10):
         x = np.dot(u * s, v)
         delta = w * (t - x)
         err = np.linalg.norm(delta) / norm_t
-        logging.info('SVT %d: error %f using %d pcs %s',
-                     i, err, topk, s[:10].astype('i'))
+        logging.info('SVT %d: error %f using %d pcs [%s]',
+                     i, err, topk, ' '.join(str(int(x)) for x in s[:30]))
         if err < tol:
             break
         y += learning_rate * delta
