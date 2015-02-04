@@ -169,18 +169,23 @@ def svt(df, threshold=None, tol=1e-3, learning_rate=1.5, window=10):
     w = window - 1
     f = num_frames - 1
 
-    # super confusing bit! above, we created "window" duplicates of our data,
+    # super confusing bit! above, we created <window> duplicates of our data,
     # each offset by 1 frame, and stacked (along axis 1) into a big ol matrix.
-    # here we unpack these duplicates, remove their offsets, take the
-    # average of the appropriate values, and put them back in the data frame.
+    # here we unpack these duplicates, remove their offsets, take the average of
+    # the appropriate values, and put them back in the data frame.
     #
-    # this is particularly difficult because the first and last "window" frames
+    # this is particularly tricky because the first and last <window> frames
     # only appear a small number of times in the overall matrix. but the
     # indexing shenanigans below seem to do the trick.
-    df.loc[idx(w, f - w), cols] = avg(parts[j][w - j:f + 1 - w - j] for j in range(window))
+    tf = df.copy()
+    tf.loc[idx(w, f - w), cols] = avg(parts[j][w - j:f + 1 - w - j] for j in range(window))
     for i in range(window):
-        df.loc[idx(i), cols] = avg(parts[i - j][j] for j in range(i, -1, -1))
-        df.loc[idx(f - i), cols] = avg(parts[w - (i - j + 1)][-j] for j in range(i+1, 0, -1))
+        tf.loc[idx(i), cols] = avg(parts[i - j][j] for j in range(i, -1, -1))
+        tf.loc[idx(f - i), cols] = avg(parts[w - (i - j + 1)][-j] for j in range(i+1, 0, -1))
+
+    # finally, after all that work, we only use the interpolated values to fill
+    # in empty spots in the original data frame.
+    df[cols].fillna(tf[cols], inplace=True)
 
     return df
 
