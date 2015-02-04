@@ -208,8 +208,8 @@ def main(root, output, pattern='*', frame_rate=100, tol=0.02, window=30, freq=10
     trials = list(database.Experiment(root).trials_matching(pattern))
     for t in trials:
         t.load()
-        t.reindex(frame_rate)
         t.mask_dropouts()
+        t.reindex(frame_rate)
         for c in t.columns:
             if c.startswith('marker') and c[:-2] not in MARKERS:
                 del t.df[c]
