@@ -30,13 +30,13 @@ def compress(trial, output, variance=0.995):
     body.make_body_relative()
     body_pcs = 0
 
-    out['body-center-x'] = body['center-x']
-    out['body-center-y'] = body['center-y']
-    out['body-center-z'] = body['center-z']
-    out['body-heading'] = body['heading']
+    out['body-center-x'] = body.df['center-x']
+    out['body-center-y'] = body.df['center-y']
+    out['body-center-z'] = body.df['center-z']
+    out['body-heading'] = body.df['heading']
     for c in body.columns:
         if c.endswith('-mean') or c.endswith('-std'):
-            out[c] = body[c]
+            out[c] = body.df[c]
 
     pca = lmj.pca.PCA(filename=p('body'))
     for i, v in enumerate(pca.encode(body.df[body.marker_channel_columns].values, retain=variance).T):
@@ -49,10 +49,10 @@ def compress(trial, output, variance=0.995):
     goal.make_target_relative()
     goal_pcs = 0
 
-    out['goal-center-x'] = goal['center-x']
-    out['goal-center-y'] = goal['center-y']
-    out['goal-center-z'] = goal['center-z']
-    out['goal-heading'] = goal['heading']
+    out['goal-center-x'] = goal.df['center-x']
+    out['goal-center-y'] = goal.df['center-y']
+    out['goal-center-z'] = goal.df['center-z']
+    out['goal-heading'] = goal.df['heading']
 
     pca = lmj.pca.PCA(filename=p('goal'))
     for i, v in enumerate(pca.encode(goal.df[goal.marker_channel_columns].values, retain=variance).T):
