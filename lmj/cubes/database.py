@@ -162,9 +162,6 @@ class DF:
     def shape(self):
         return self.df.shape
 
-    def dropna(self, *args, **kwargs):
-        return self.df.dropna(*args, **kwargs)
-
 
 class Movement(DF):
     '''Base class for representing and manipulating movement data.
@@ -214,6 +211,32 @@ class Movement(DF):
             if c.startswith('marker') and
             c[6:8].isdigit() and
             c[-2:] == '-c'))
+
+    @property
+    def distance_to_target(self):
+        '''Return the distance to the target cube over time.
+
+        Returns
+        -------
+        pd.Series :
+            The Euclidean distance from the effector to the target over the
+            course of our movement.
+        '''
+        df = self.effector_trajectory - self.target_trajectory
+        return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
+
+    @property
+    def distance_from_source(self):
+        '''Return the distance to the source cube over time.
+
+        Returns
+        -------
+        pd.Series :
+            The Euclidean distance from the effector to the source over the
+            course of our movement.
+        '''
+        df = self.effector_trajectory - self.source_trajectory
+        return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def lookup_marker(self, marker):
         '''Look up a marker either by index or by name.
@@ -269,32 +292,6 @@ class Movement(DF):
         marker = self.lookup_marker(marker)
         z = self.df.loc[:, marker + '-x':marker + '-z'].values
         return pd.DataFrame(z, index=self.index, columns=list('xyz'))
-
-    @property
-    def distance_to_target(self):
-        '''Return the distance to the target cube over time.
-
-        Returns
-        -------
-        pd.Series :
-            The Euclidean distance from the effector to the target over the
-            course of our movement.
-        '''
-        df = self.effector_trajectory - self.target_trajectory
-        return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
-
-    @property
-    def distance_from_source(self):
-        '''Return the distance to the source cube over time.
-
-        Returns
-        -------
-        pd.Series :
-            The Euclidean distance from the effector to the source over the
-            course of our movement.
-        '''
-        df = self.effector_trajectory - self.source_trajectory
-        return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def clear(self):
         '''Remove our data frame from memory.'''
