@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import climate
+import lmj.plot
 
 import database
 import plots
@@ -10,16 +11,20 @@ import plots
     root='plot data rooted at this path',
     pattern=('plot data from files matching this pattern', 'option'),
 )
-def main(root, pattern='*/*block03/*trial00*.csv.gz', targets=(0, 1, 2, 3)):
-    for trial in database.Experiment(root).trials_matching(pattern):
-        trial.load()
-        with plots.space() as ax:
-            plots.show_cubes(ax, trial, targets)
+def main(root, pattern='*/*block01/*trial01*.csv.gz', targets=(0, 4, 10)):
+    cubes = True
+    with plots.space() as ax:
+        for i, trial in enumerate(database.Experiment(root).trials_matching(pattern)):
+            trial.load()
+            #trial.mask_fiddly_target_frames()
+            #trial.mask_dropouts()
+            if cubes:
+                plots.show_cubes(ax, trial, targets)
+                cubes = False
             for t in targets:
                 mov = trial.movement_to(t)
                 if len(mov.df):
-                    for i in range(1, 5):
-                        plots.skeleton(ax, mov, -10 * i, lw=2, color='#111111', alpha=0.7)
+                    plots.skeleton(ax, mov, -1, lw=2, alpha=0.9)
 
 
 if __name__ == '__main__':
