@@ -93,8 +93,7 @@ def main(root, output, pattern='*', variance=0.999):
 
     del df
 
-    return [compress(t, output, variance) for t in trials]
-    joblib.Parallel(-1)(joblib.delayed(compress)(t, output, variance) for t in trials)
+    joblib.Parallel(3)(joblib.delayed(compress)(t, output, variance) for t in trials)
 
 
 if __name__ == '__main__':
