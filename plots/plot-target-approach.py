@@ -31,16 +31,16 @@ def target_approaches(root, pattern, markers, target_num):
     root='read subject data from this file tree',
     pattern=('plot data from files matching this pattern', 'option'),
     markers=('plot data for these mocap markers', 'option'),
-    target_num=('plot data for this target', 'option', None, int),
+    target=('plot data for this target', 'option', None, int),
     approach_sec=('plot variance for N sec prior to target acquisition', 'option', None, float),
 )
 def main(root,
          pattern='*/*/*trial00*.csv.gz',
          markers='r-fing-index l-fing-index r-head-front r-heel r-knee',
-         target_num=3,
+         target=3,
          approach_sec=2):
     num_frames = int(100 * approach_sec)
-    data, targets = process_data(root, pattern, markers, target_num)
+    data, targets = process_data(root, pattern, markers, target)
     with plots.space() as ax:
         plots.show_cubes(ax, targets, target_num=target_num)
         for i, (marker, keys) in enumerate(itertools.groupby(sorted(data), lambda x: x[0])):
