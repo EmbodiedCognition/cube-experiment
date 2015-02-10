@@ -1,3 +1,3 @@
-from .database import Experiment
+from .database import Experiment, Movement, Trial
 from . import plots
 from . import utils
