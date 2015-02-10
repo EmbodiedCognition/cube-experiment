@@ -3,14 +3,13 @@
 import climate
 import itertools
 import joblib
+import lmj.cubes
 import lmj.pca
 import os
 import pandas as pd
 import random
 
-import database
-
-logging = climate.get_logger('compress')
+logging = climate.get_logger('process')
 
 
 def compress(trial, output, variance=0.995):
@@ -25,18 +24,16 @@ def compress(trial, output, variance=0.995):
         return os.path.join(output, 'pca-{}-relative.npz'.format(w))
 
     # encode body-relative data.
-    body = database.Trial(trial.parent, trial.basename)
+    body = lmj.cubes.Trial(trial.parent, trial.basename)
     body.df = trial.df.copy()
-    body.make_body_relative()
+    stats = body.make_body_relative()
+    body.add_velocities()
     body_pcs = 0
 
     out['body-center-x'] = body.df['center-x']
     out['body-center-y'] = body.df['center-y']
     out['body-center-z'] = body.df['center-z']
     out['body-heading'] = body.df['heading']
-    for c in body.columns:
-        if c.endswith('-mean') or c.endswith('-std'):
-            out[c] = body.df[c]
 
     pca = lmj.pca.PCA(filename=p('body'))
     for i, v in enumerate(pca.encode(body.df[body.marker_channel_columns].values, retain=variance).T):
@@ -44,9 +41,10 @@ def compress(trial, output, variance=0.995):
         body_pcs += 1
 
     # encode goal-relative data.
-    goal = database.Trial(trial.parent, trial.basename)
+    goal = lmj.cubes.Trial(trial.parent, trial.basename)
     goal.df = trial.df.copy()
     goal.make_target_relative()
+    goal.add_velocities()
     goal_pcs = 0
 
     out['goal-center-x'] = goal.df['center-x']
@@ -80,43 +78,9 @@ def compress(trial, output, variance=0.995):
     variance=('retain this fraction of variance', 'option', None, float),
 )
 def main(root, output, pattern='*', variance=0.99):
-    probes = [0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999]
-    if variance not in probes:
-        probes = sorted([variance] + probes)
-
-    trials = list(database.Experiment(root).trials_matching(pattern))
-    keys = [(t.block.key, t.key) for t in trials]
-
-    # choose N trials per subject to compute the principal components.
-    N = 3
-    pca_trials = []
-    for s, ts in itertools.groupby(trials, key=lambda t: t.subject.key):
-        ts = list(ts)
-        idx = list(range(len(ts)))
-        random.shuffle(idx)
-        for i in idx[:N]:
-            pca_trials.append(ts[i])
-            ts[i].load()
-
-    body = database.Movement(pd.concat([t.df for t in pca_trials]))
-    body.make_body_relative()
-
-    pca = lmj.pca.PCA()
-    pca.fit(body.df[body.marker_channel_columns])
-    for v in probes:
-        print('{:.1f}%: {} body components'.format(100 * v, pca.num_components(v)))
-    pca.save(os.path.join(output, 'pca-body-relative.npz'))
-
-    goal = database.Movement(pd.concat([t.df for t in pca_trials]))
-    goal.make_target_relative()
-
-    pca = lmj.pca.PCA()
-    pca.fit(goal.df[goal.marker_channel_columns])
-    for v in probes:
-        print('{:.1f}%: {} goal components'.format(100 * v, pca.num_components(v)))
-    pca.save(os.path.join(output, 'pca-goal-relative.npz'))
-
-    joblib.Parallel(-1)(joblib.delayed(compress)(t, output, variance) for t in trials)
+    func = joblib.delayed(compress)
+    trials = lmj.cubes.Experiment(root).trials_matching(pattern)
+    joblib.Parallel(-1)(func(t, output, variance) for t in trials)
 
 
 if __name__ == '__main__':
