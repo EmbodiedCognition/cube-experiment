@@ -8,7 +8,7 @@ import os
 import pandas as pd
 import random
 
-logging = climate.get_logger('train-pca')
+logging = climate.get_logger('02a-train-move-pca')
 
 @climate.annotate(
     root='load data files from this directory tree',

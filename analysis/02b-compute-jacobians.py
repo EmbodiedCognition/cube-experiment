@@ -9,10 +9,10 @@ import os
 import pandas as pd
 import random
 
-logging = climate.get_logger('process')
+logging = climate.get_logger('02b-compute-jac')
 
 
-def compress(trial, output, variance=0.995):
+def compute(trial, output, variance=0.995):
     trial.load()
     trial.mask_fiddly_target_frames()
     #trial.df.dropna(thresh=len(COLUMNS), inplace=True)
@@ -81,7 +81,7 @@ def compress(trial, output, variance=0.995):
     variance=('retain this fraction of variance', 'option', None, float),
 )
 def main(root, output, pattern='*', variance=0.99):
-    func = joblib.delayed(compress)
+    func = joblib.delayed(compute)
     trials = lmj.cubes.Experiment(root).trials_matching(pattern)
     joblib.Parallel(-1)(func(t, output, variance) for t in trials)
 
