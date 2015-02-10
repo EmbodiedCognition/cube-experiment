@@ -2,12 +2,11 @@
 
 import climate
 import joblib
+import lmj.cubes
 import numpy as np
 import pandas as pd
 import pypropack
 import scipy.signal
-
-import database
 
 logging = climate.get_logger('fill')
 
@@ -215,7 +214,7 @@ def lowpass(df, freq=10., order=4):
     freq=('lowpass filter at N Hz', 'option', None, float),
 )
 def main(root, output, pattern='*', frame_rate=100, tol=0.02, window=30, freq=10):
-    trials = list(database.Experiment(root).trials_matching(pattern))
+    trials = list(lmj.cubes.Experiment(root).trials_matching(pattern))
     for t in trials:
         t.load()
         t.mask_dropouts()

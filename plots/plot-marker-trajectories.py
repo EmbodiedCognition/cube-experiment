@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 
 import climate
+import lmj.cubes
 import lmj.plot
 import numpy as np
-
-import database
-import plots
 
 
 @climate.annotate(
@@ -29,10 +27,10 @@ def main(root,
          svt_threshold=None,
          svt_frames=5):
     with plots.space() as ax:
-        for t in database.Experiment(root).trials_matching(pattern):
+        for t in lmj.cubes.Experiment(root).trials_matching(pattern):
             t.load()
             if cubes == 'yes':
-                plots.show_cubes(ax, t)
+                lmj.cubes.plots.show_cubes(ax, t)
                 cubes = False
             if dropouts:
                 t.mask_dropouts()
