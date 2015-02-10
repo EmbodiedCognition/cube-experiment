@@ -17,7 +17,8 @@ def compress(trial, output, variance=0.995):
     trial.mask_fiddly_target_frames()
     #trial.df.dropna(thresh=len(COLUMNS), inplace=True)
 
-    init = [c for c in trial.columns if c[:6] in ('source', 'target')]
+    init = [c for c in trial.columns
+            if c.startswith('source') or c.startswith('target')]
     out = pd.DataFrame(trial.df[init], index=trial.df.index)
 
     def p(w):
@@ -36,7 +37,8 @@ def compress(trial, output, variance=0.995):
     out['body-heading'] = body.df['heading']
 
     pca = lmj.pca.PCA(filename=p('body'))
-    for i, v in enumerate(pca.encode(body.df[body.marker_channel_columns].values, retain=variance).T):
+    values = body.df[body.marker_channel_columns].values
+    for i, v in enumerate(pca.encode(values, retain=variance).T):
         out['body-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
         body_pcs += 1
 
@@ -53,7 +55,8 @@ def compress(trial, output, variance=0.995):
     out['goal-heading'] = goal.df['heading']
 
     pca = lmj.pca.PCA(filename=p('goal'))
-    for i, v in enumerate(pca.encode(goal.df[goal.marker_channel_columns].values, retain=variance).T):
+    values = goal.df[goal.marker_channel_columns].values
+    for i, v in enumerate(pca.encode(values, retain=variance).T):
         out['goal-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
         goal_pcs += 1
 
