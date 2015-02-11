@@ -9,7 +9,7 @@ import os
 import pandas as pd
 import re
 
-logging = climate.get_logger('database')
+logging = climate.get_logger(__name__)
 
 
 class TimedMixin:
@@ -162,9 +162,6 @@ class DF:
     def shape(self):
         return self.df.shape
 
-    def dropna(self, *args, **kwargs):
-        return self.df.dropna(*args, **kwargs)
-
 
 class Movement(DF):
     '''Base class for representing and manipulating movement data.
@@ -214,6 +211,32 @@ class Movement(DF):
             if c.startswith('marker') and
             c[6:8].isdigit() and
             c[-2:] == '-c'))
+
+    @property
+    def distance_to_target(self):
+        '''Return the distance to the target cube over time.
+
+        Returns
+        -------
+        pd.Series :
+            The Euclidean distance from the effector to the target over the
+            course of our movement.
+        '''
+        df = self.effector_trajectory - self.target_trajectory
+        return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
+
+    @property
+    def distance_from_source(self):
+        '''Return the distance to the source cube over time.
+
+        Returns
+        -------
+        pd.Series :
+            The Euclidean distance from the effector to the source over the
+            course of our movement.
+        '''
+        df = self.effector_trajectory - self.source_trajectory
+        return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def lookup_marker(self, marker):
         '''Look up a marker either by index or by name.
@@ -269,32 +292,6 @@ class Movement(DF):
         marker = self.lookup_marker(marker)
         z = self.df.loc[:, marker + '-x':marker + '-z'].values
         return pd.DataFrame(z, index=self.index, columns=list('xyz'))
-
-    @property
-    def distance_to_target(self):
-        '''Return the distance to the target cube over time.
-
-        Returns
-        -------
-        pd.Series :
-            The Euclidean distance from the effector to the target over the
-            course of our movement.
-        '''
-        df = self.effector_trajectory - self.target_trajectory
-        return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
-
-    @property
-    def distance_from_source(self):
-        '''Return the distance to the source cube over time.
-
-        Returns
-        -------
-        pd.Series :
-            The Euclidean distance from the effector to the source over the
-            course of our movement.
-        '''
-        df = self.effector_trajectory - self.source_trajectory
-        return np.sqrt(df.x * df.x + df.y * df.y + df.z * df.z)
 
     def clear(self):
         '''Remove our data frame from memory.'''
@@ -445,22 +442,37 @@ class Movement(DF):
                      sum(mask), len(mask), 100 * sum(mask) / len(mask))
 
     def convert_markers_to_z_scores(self):
-        '''Convert marker positions to z-scores.'''
+        '''Convert marker positions to z-scores.
+
+        Returns
+        =======
+        stats : pandas.DataFrame
+            A data frame containing summary statistics. The index for this frame
+            contains 'mean' and 'std' keys, and the columns correspond to marker
+            channel columns.
+        '''
+        df = self.df[self.marker_channel_columns]
+        stats = pd.DataFrame(dict(mu=df.mean(), sigma=df.std()))
         for c in self.marker_channel_columns:
-            mean = self.df[c].mean()
-            std = max(1e-8, self.df[c].std())
-            self.df[c + '-mean'] = mean
-            self.df[c + '-std'] = std
-            self.df[c] -= mean
-            self.df[c] /= std
+            self.df[c] -= stats.mu[c]
+            self.df[c] /= stats.sigma[c]
+        return stats
 
     def make_body_relative(self):
-        '''Translate and rotate marker data so that it's body-relative.'''
+        '''Translate and rotate marker data so that it's body-relative.
+
+        Returns
+        =======
+        stats : pandas.DataFrame
+            A data frame containing z-score summary statistics. The index for
+            this frame contains 'mean' and 'std' keys, and the columns
+            correspond to marker channel columns.
+        '''
         t = self.trajectory
         self.recenter((t('r-hip') + t('r-ilium') + t('l-hip') + t('l-ilium')) / 4)
         r = ((t('r-hip') - t('r-ilium')) + (t('l-hip') - t('l-ilium'))) / 2
         self.rotate_heading(np.arctan2(r.z, r.x))
-        self.convert_markers_to_z_scores()
+        return self.convert_markers_to_z_scores()
 
     def make_target_relative(self):
         '''Translate and rotate marker data so it's relative to the target.'''

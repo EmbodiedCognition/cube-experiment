@@ -4,7 +4,7 @@ import numpy as np
 
 
 @contextlib.contextmanager
-def space(show_afterwards=True, azim=30, elev=30):
+def space(show_afterwards=True):
     '''Produce a 3D plotting axes, for use in a with statement.'''
     ax = lmj.plot.create_axes(111, projection='3d', aspect='equal', spines=None)
     yield ax
@@ -17,8 +17,6 @@ def space(show_afterwards=True, azim=30, elev=30):
     ax.w_xaxis.set_pane_color((1, 1, 1, 1))
     ax.w_yaxis.set_pane_color((1, 1, 1, 1))
     ax.w_zaxis.set_pane_color((1, 1, 1, 1))
-    ax.azim = azim
-    ax.elev = elev
     if show_afterwards:
         lmj.plot.show()
 
@@ -47,7 +45,7 @@ def show_cubes(ax, trial, target_num=None):
                 xs.append(x)
                 ys.append(y)
                 zs.append(z)
-                ax.text(x, z + 0.1, y + 0.1, str(int(n)))
+                ax.text(x, z - 0.1, y + 0.1, str(int(n)))
     ax.scatter(xs, zs, ys, marker='o', s=200, color='#111111', linewidth=0, alpha=0.7)
 
 
@@ -89,8 +87,8 @@ def skeleton(ax, trial, frame, show_labels=(), **kwargs):
             ys.append(traj.y[idx])
             zs.append(traj.z[idx] + oz)
             labels[marker] = (traj.x[idx] + ox, traj.y[idx], traj.z[idx] + oz)
-        ax.scatter(xs, zs, zs=ys, s=20, lw=0, **sckwargs)
-        ax.plot(xs, zs, zs=ys, **kwargs)
+        ax.scatter(xs, zs, zs=ys, s=40, lw=0, **sckwargs)
+        ax.plot(xs, zs, zs=ys, alpha=0.5, **kwargs)
     for m, (x, y, z) in labels.items():
         if m in show_labels:
             ax.text(x, z + 0.05, y + 0.05, str(m))
