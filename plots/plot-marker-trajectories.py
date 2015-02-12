@@ -5,40 +5,24 @@ import lmj.cubes
 import lmj.plot
 import numpy as np
 
+MARKERS = 'r-fing-index l-fing-index r-heel r-knee'
 
 @climate.annotate(
     root='load experiment data from this directory',
     pattern=('plot data from files matching this pattern', 'option'),
     markers=('plot traces of these markers', 'option'),
-    cubes=('do not plot target cubes', 'option'),
     dropouts=('replace dropout frames with nans', 'option'),
-    accuracy=('fit spline/SVT with this accuracy', 'option', None, float),
-    spline_order=('interpolate data with a spline of this order', 'option', None, int),
-    svt_threshold=('trajectory-SVT threshold', 'option', None, float),
-    svt_frames=('number of trajectory-SVT frames', 'option', None, int),
 )
-def main(root,
-         pattern='*/*block03*/*trial00*.csv.gz',
-         markers='r-fing-index l-fing-index r-heel r-knee',
-         cubes='yes',
-         dropouts=None,
-         accuracy=0.002,
-         spline_order=None,
-         svt_threshold=None,
-         svt_frames=5):
-    with plots.space() as ax:
+def main(root, pattern='*/*block03*/*trial00*.csv.gz', markers=MARKERS, dropouts=None):
+    cubes = True
+    with lmj.cubes.plots.space() as ax:
         for t in lmj.cubes.Experiment(root).trials_matching(pattern):
             t.load()
-            if cubes == 'yes':
+            if cubes:
                 lmj.cubes.plots.show_cubes(ax, t)
                 cubes = False
             if dropouts:
                 t.mask_dropouts()
-            if spline_order:
-                t.normalize(order=spline_order, accuracy=1. / accuracy)
-            elif svt_threshold:
-                t.reindex()
-                t.svt(svt_threshold, accuracy, svt_frames)
             for i, marker in enumerate(markers.split()):
                 df = t.trajectory(marker)
                 ax.plot(np.asarray(df.x),
