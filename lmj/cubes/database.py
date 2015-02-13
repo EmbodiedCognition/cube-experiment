@@ -4,6 +4,7 @@ import datetime
 import fnmatch
 import gzip
 import io
+import itertools
 import numpy as np
 import os
 import pandas as pd
@@ -71,10 +72,25 @@ class Experiment:
             for t in s.trials:
                 yield t
 
-    def trials_matching(self, pattern):
+    def trials_matching(self, pattern='*'):
         for t in self.trials:
             if t.matches(pattern):
                 yield t
+
+    def by_subject(self, pattern='*'):
+        trials = self.trials_matching(pattern)
+        return itertools.groupby(trials, key=lambda t: t.subject.key)
+
+    def load_sample(self, pattern='*', per_subject=3):
+        trials = []
+        for _, ts in self.by_subject():
+            ts = list(ts)
+            idx = list(range(len(ts)))
+            np.random.shuffle(idx)
+            for i in idx[:per_subject]:
+                trials.append(ts[i])
+                trials[-1].load()
+        return trials
 
 
 class Subject(TimedMixin, TreeMixin):
