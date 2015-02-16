@@ -50,6 +50,18 @@ def show_cubes(ax, trial, target_num=None):
     ax.scatter(xs, zs, ys, marker='o', s=200, color='#111111', linewidth=0, alpha=0.7)
 
 
+SKELETON_SEGMENTS = (
+    # legs
+    ['l-ilium', 'l-knee', 'l-shin', 'l-ankle', 'l-heel', 'l-mt-outer', 'l-mt-inner'],
+    ['r-ilium', 'r-knee', 'r-shin', 'r-ankle', 'r-heel', 'r-mt-outer', 'r-mt-inner'],
+    # arms
+    ['t3', 'r-collar', 'r-shoulder', 'r-elbow', 'r-wrist', 'r-mc-inner', 'r-fing-index'],
+    ['t3', 'l-collar', 'l-shoulder', 'l-elbow', 'l-wrist', 'l-mc-inner', 'l-fing-index'],
+    # head + torso
+    ['r-head-front', 'l-head-back', 'l-head-front', 'r-head-back',
+     't3', 't9', 'l-ilium', 'r-ilium', 'r-hip', 'l-hip', 'abdomen', 'sternum'],
+)
+
 def skeleton(ax, trial, frame, show_labels=(), **kwargs):
     '''Plot a skeleton based on a frame of the given trial.
 
@@ -60,39 +72,41 @@ def skeleton(ax, trial, frame, show_labels=(), **kwargs):
     frame : int or float
     show_labels : sequence of string
     '''
+    idx = trial.df.index[frame]
+    fr = lambda m: trial.trajectory(m, velocity=True).loc[idx, :]
+    frames = {m[9:]: fr(m) for m in trial.marker_columns}
+
+    # plot marker positions.
     sckwargs = dict(kwargs)
     for k in ('lw', 'linewidth'):
         if k in sckwargs:
             sckwargs.pop(k)
-    ox = oz = 0
-    if 'offset' in kwargs:
-        ox, oz = kwargs.pop('offset')
-        sckwargs.pop('offset')
-    idx = trial.df.index[frame]
-    labels = {}
-    for segment in (
-        # legs
-        ['l-ilium', 'l-knee', 'l-shin', 'l-ankle', 'l-heel', 'l-mt-outer', 'l-mt-inner'],
-        ['r-ilium', 'r-knee', 'r-shin', 'r-ankle', 'r-heel', 'r-mt-outer', 'r-mt-inner'],
-        # arms
-        ['t3', 'r-collar', 'r-shoulder', 'r-elbow', 'r-wrist', 'r-mc-inner', 'r-fing-index'],
-        ['t3', 'l-collar', 'l-shoulder', 'l-elbow', 'l-wrist', 'l-mc-inner', 'l-fing-index'],
-        # head + torso
-        ['r-head-front', 'l-head-back', 'l-head-front', 'r-head-back',
-         't3', 't9', 'l-ilium', 'r-ilium', 'r-hip', 'l-hip', 'abdomen', 'sternum'],
-    ):
+    ax.scatter([f.x for f in frames.values()],
+               [f.z for f in frames.values()],
+               zs=[f.y for f in frames.values()],
+               s=40, lw=0, color='#d62728', **sckwargs)
+
+    # plot marker velocities.
+    dt = 0.2
+    for f in frames.values():
+        ax.plot([f.x, f.x + dt * f.vx],
+                [f.z, f.z + dt * f.vz],
+                zs=[f.y, f.y + dt * f.vy],
+                alpha=0.4, color='#17becf')
+
+    # plot skeleton segments.
+    for segment in SKELETON_SEGMENTS:
         xs, ys, zs = [], [], []
-        for marker in segment:
-            traj = trial.trajectory(marker)
-            xs.append(traj.x[idx] + ox)
-            ys.append(traj.y[idx])
-            zs.append(traj.z[idx] + oz)
-            labels[marker] = (traj.x[idx] + ox, traj.y[idx], traj.z[idx] + oz)
-        ax.scatter(xs, zs, zs=ys, s=40, lw=0, color='#d62728', **sckwargs)
+        for m in segment:
+            xs.append(frames[m].x)
+            ys.append(frames[m].y)
+            zs.append(frames[m].z)
         ax.plot(xs, zs, zs=ys, alpha=0.5, color='#111111', **kwargs)
-    for m, (x, y, z) in labels.items():
+
+    # plot marker labels.
+    for m, f in frames.items():
         if m in show_labels:
-            ax.text(x, z + 0.05, y + 0.05, str(m))
+            ax.text(f.x, f.z + 0.05, f.y + 0.05, str(m))
 
 
 u, v = np.mgrid[0:2 * np.pi:17j, 0:np.pi:13j]
