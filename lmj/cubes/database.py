@@ -310,7 +310,7 @@ class Movement(DF):
             return matches[0][:-2]
         raise ValueError('more than one match for {}'.format(marker))
 
-    def trajectory(self, marker):
+    def trajectory(self, marker, velocity=False):
         '''Return the x, y, and z coordinates of a marker in our movement.
 
         Parameters
@@ -318,12 +318,15 @@ class Movement(DF):
         marker : str or int
             A search string or integer index to use for looking up the desired
             marker.
+        velocity : bool, optional
+            If True, include velocity in returned data frame.
 
         Returns
         -------
         pd.DataFrame :
             A data frame containing x, y, and z columns for each frame in our
-            movement.
+            movement. If velocity is included, vx, vy, and vz columns will be
+            included as well.
 
         Raises
         ------
@@ -334,7 +337,11 @@ class Movement(DF):
         '''
         marker = self.lookup_marker(marker)
         z = self.df.loc[:, marker + '-x':marker + '-z'].values
-        return pd.DataFrame(z, index=self.index, columns=list('xyz'))
+        df = pd.DataFrame(z, index=self.index, columns=list('xyz'))
+        if velocity:
+            for c in 'xyz':
+                df['v{}'.format(c)] = self.df['{}-v{}'.format(marker, c)]
+        return df
 
     def clear(self):
         '''Remove our data frame from memory.'''
