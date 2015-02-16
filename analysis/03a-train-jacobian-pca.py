@@ -16,11 +16,11 @@ PROBES = [0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.998, 0.999]
     pattern=('only load trials matching this pattern', 'option'),
     n=('choose N trials per subject to compute the PCs', 'option', None, int),
 )
-def main(root, output, pattern='*', n=5):
+def main(root, output, pattern='*', n=3):
     if not os.path.isdir(output):
         os.makedirs(output)
 
-    df = pd.concat([t.df for t in lmj.cubes.Experiment(root).load_sample(pattern, 5)])
+    df = pd.concat([t.df for t in lmj.cubes.Experiment(root).load_sample(pattern, n)])
 
     fwd = df[[c for c in df.columns if c.startswith('jac-g')]]
     n = fwd.shape[0] * fwd.shape[1]
