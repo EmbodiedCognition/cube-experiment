@@ -7,6 +7,7 @@ import lmj.plot
 import numpy as np
 import pandas as pd
 
+FRAME_RATE = 100
 MARKERS = 'r-fing-index l-fing-index r-heel   r-head-front'
 _COLORS = '#111111      #d62728      #1f77b4  #2ca02c'
 COLORS = dict(zip(MARKERS.split(), _COLORS.split()))
@@ -20,6 +21,7 @@ COLORS = dict(zip(MARKERS.split(), _COLORS.split()))
 )
 def main(root, pattern='*/*/*trial00*', output=None, target=3, approach_sec=1):
     targets = None
+    num_frames = int(FRAME_RATE * approach_sec)
 
     # first, read trial data and extract marker trajectories. group by marker
     # and source cube.
@@ -54,7 +56,6 @@ def main(root, pattern='*/*/*trial00*', output=None, target=3, approach_sec=1):
         ax.set_zlim(0, 2)
         ax.set_zticks([0, 1, 2])
         ax.set_zticklabels([])
-        num_frames = int(100 * approach_sec)
         def render():
             lmj.cubes.plots.show_cubes(ax, targets, target_num=target)
             for (marker, source), (mean, stderr) in agg.items():
