@@ -37,7 +37,7 @@ def show_cubes(ax, trial, target_num=None):
     elif isinstance(target_num, int):
         target_num = (target_num, )
     to_plot = set(target_num)
-    xs, ys, zs = [], [], []
+    xs, ys, zs = [-1000], [-1000], [-1000]
     for flavor in ('source', 'target'):
         cols = [flavor + suffix for suffix in ('', '-x', '-y', '-z')]
         for _, (n, x, y, z) in trial.df[cols].drop_duplicates().iterrows():
