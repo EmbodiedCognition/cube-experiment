@@ -220,6 +220,33 @@ class Movement(DF):
                 c[-1] in 'xyz']
 
     @property
+    def marker_position_columns(self):
+        '''Get a list of the x, y, and z position columns for marker data.'''
+        return [c for c in self.columns
+                if c.startswith('marker') and
+                c[6:8].isdigit() and
+                c[-2] == '-' and
+                c[-1] in 'xyz']
+
+    @property
+    def marker_velocity_columns(self):
+        '''Get a list of the x, y, and z velocity columns for marker data.'''
+        return [c for c in self.columns
+                if c.startswith('marker') and
+                c[6:8].isdigit() and
+                c[-2] == 'v' and
+                c[-1] in 'xyz']
+
+    @property
+    def marker_acceleration_columns(self):
+        '''Get a list of the x, y, and z acceleration columns for marker data.'''
+        return [c for c in self.columns
+                if c.startswith('marker') and
+                c[6:8].isdigit() and
+                c[-2] == 'a' and
+                c[-1] in 'xyz']
+
+    @property
     def marker_columns(self):
         '''Get a list of the column prefixes for marker data.'''
         return sorted(set(
@@ -377,6 +404,19 @@ class Movement(DF):
         '''
         dt = 2 * self.approx_delta_t
         for c in self.marker_channel_columns:
+            self.df['{}-v{}'.format(c[:-2], c[-1])] = pd.rolling_mean(
+                self.df[c].diff(2).shift(-1) / dt, smooth, center=True)
+
+    def add_accelerations(self, smooth=11):
+        '''Add columns to the data that reflect the instantaneous acceleration.
+
+        Parameters
+        ----------
+        smooth : int, optional
+            Number of frames over which to smooth acceleration data. Defaults to 11.
+        '''
+        dt = 2 * self.approx_delta_t
+        for c in self.marker_velocity_columns:
             self.df['{}-v{}'.format(c[:-2], c[-1])] = pd.rolling_mean(
                 self.df[c].diff(2).shift(-1) / dt, smooth, center=True)
 
