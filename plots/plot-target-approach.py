@@ -43,6 +43,17 @@ def main(root, pattern='*/*/*trial00*', output=None, target=3, approach_sec=1):
         merged = pd.concat(dfs, axis=1, keys=keys).groupby(axis=1, level=1)
         agg[key] = merged.mean(), merged.std() / np.sqrt(merged.size())
 
+    with lmj.plot.axes(spines=True) as ax:
+        ts = np.arange(-num_frames, 0)
+        for marker in reversed(MARKERS.split()):
+            for (m, s), (mean, stderr) in agg.items():
+                if m == marker:
+                    ax.plot(ts, stderr.sum(axis=1)[-num_frames:], color=COLORS[marker])
+        ax.set_xticks(np.linspace(-num_frames, 0, 5))
+        ax.set_xticklabels(np.linspace(-num_frames / FRAME_RATE, 0, 5))
+        ax.set_xlabel('Time Before Touch (sec)')
+        ax.set_ylabel('Summed Standard Error')
+
     def show(ax):
         ax.w_xaxis.set_pane_color((1, 1, 1, 1))
         ax.w_yaxis.set_pane_color((1, 1, 1, 1))
