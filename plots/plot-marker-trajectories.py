@@ -10,12 +10,10 @@ MARKERS = 'r-fing-index l-fing-index r-heel r-head-front'
 @climate.annotate(
     root='load experiment data from this directory',
     pattern=('plot data from files matching this pattern', 'option'),
-    markers=('plot traces of these markers', 'option'),
     dropouts=('replace dropout frames with nans', 'option'),
     output=('save movie in this output filename', 'option'),
 )
-def main(root, pattern='*/*block03*/*trial00*.csv.gz', markers=MARKERS, dropouts=None, output=None):
-    cubes = True
+def main(root, pattern='*/*block03*/*trial00*.csv.gz', dropouts=None, output=None):
     def show(ax):
         ax.w_xaxis.set_pane_color((1, 1, 1, 1))
         ax.w_yaxis.set_pane_color((1, 1, 1, 1))
@@ -38,7 +36,7 @@ def main(root, pattern='*/*block03*/*trial00*.csv.gz', markers=MARKERS, dropouts
                     cubes = False
                 if dropouts:
                     t.mask_dropouts()
-                for i, marker in enumerate(markers.split()):
+                for i, marker in enumerate(MARKERS.split()):
                     df = t.trajectory(marker)
                     ax.plot(np.asarray(df.x)[4:-4],
                             np.asarray(df.z)[4:-4],
@@ -52,7 +50,6 @@ def main(root, pattern='*/*block03*/*trial00*.csv.gz', markers=MARKERS, dropouts
         show, output=output,
         azim=(0, 90), elev=(5, 20),
         fig=dict(figsize=(10, 4.8)),
-        movie_args=('-vcodec', 'libx264', '-b', '3000k'),
     )
     if not output:
         lmj.plot.show()
