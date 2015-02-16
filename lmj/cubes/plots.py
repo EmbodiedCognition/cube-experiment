@@ -88,8 +88,8 @@ def skeleton(ax, trial, frame, show_labels=(), **kwargs):
             ys.append(traj.y[idx])
             zs.append(traj.z[idx] + oz)
             labels[marker] = (traj.x[idx] + ox, traj.y[idx], traj.z[idx] + oz)
-        ax.scatter(xs, zs, zs=ys, s=40, lw=0, **sckwargs)
-        ax.plot(xs, zs, zs=ys, alpha=0.5, **kwargs)
+        ax.scatter(xs, zs, zs=ys, s=40, lw=0, color='#d62728', **sckwargs)
+        ax.plot(xs, zs, zs=ys, alpha=0.5, color='#111111', **kwargs)
     for m, (x, y, z) in labels.items():
         if m in show_labels:
             ax.text(x, z + 0.05, y + 0.05, str(m))
