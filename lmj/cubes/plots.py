@@ -6,6 +6,7 @@ import numpy as np
 @contextlib.contextmanager
 def space(show_afterwards=True):
     '''Produce a 3D plotting axes, for use in a with statement.'''
+    fig = lmj.plot.figure(figsize=(11, 4))
     ax = lmj.plot.create_axes(111, projection='3d', aspect='equal', spines=None)
     yield ax
     ax.set_xlim([-2, 2])
