@@ -4,7 +4,7 @@ import climate
 import lmj.cubes
 import lmj.plot
 
-TARGETS = (0, 1, 4)
+TARGETS = ((0, -1), (1, -1), (8, -100), (4, -1))
 
 @climate.annotate(
     root='plot data rooted at this path',
@@ -30,15 +30,16 @@ def main(root, pattern='*/*block01/*trial01*.csv.gz', dropouts=None, output=None
             cubes = True
             for t in lmj.cubes.Experiment(root).trials_matching(pattern):
                 t.load()
+                t.add_velocities(smooth=3)
                 if cubes:
                     lmj.cubes.plots.show_cubes(ax, t)
                     cubes = False
                 if dropouts:
                     t.mask_dropouts()
-                for n in TARGETS:
-                    mov = t.movement_to(n)
+                for T, F in TARGETS:
+                    mov = t.movement_to(T)
                     if len(mov.df):
-                        lmj.cubes.plots.skeleton(ax, mov, -1, lw=2)
+                        lmj.cubes.plots.skeleton(ax, mov, F, lw=2)
         return render
     anim = lmj.plot.rotate_3d(
         show, output=output,
