@@ -54,36 +54,23 @@ def main(root, pattern='*/*/*trial00*', output=None, target=3, approach_sec=1):
         ax.set_xlabel('Time Before Touch (sec)')
         ax.set_ylabel('Summed Standard Error')
 
-    def show(ax):
-        ax.w_xaxis.set_pane_color((1, 1, 1, 1))
-        ax.w_yaxis.set_pane_color((1, 1, 1, 1))
-        ax.w_zaxis.set_pane_color((1, 1, 1, 1))
-        ax.set_xlim(-2, 2)
-        ax.set_xticks([-2, -1, 0, 1, 2])
-        ax.set_xticklabels([])
-        ax.set_ylim(-2, 2)
-        ax.set_yticks([-2, -1, 0, 1, 2])
-        ax.set_yticklabels([])
-        ax.set_zlim(0, 2)
-        ax.set_zticks([0, 1, 2])
-        ax.set_zticklabels([])
-        def render():
-            lmj.cubes.plots.show_cubes(ax, targets, target_num=target)
-            for (marker, source), (mean, stderr) in agg.items():
-                mx, my, mz = mean.x, mean.y, mean.z
-                sx, sy, sz = stderr.x, stderr.y, stderr.z
-                for t in np.linspace(0, num_frames, 7).astype(int):
-                    x, y, z = lmj.cubes.plots.ellipsoid(
-                        [mx[-t], my[-t], mz[-t]],
-                        [sx[-t], sy[-t], sz[-t]])
-                    ax.plot_wireframe(x, z, y, color=COLORS[marker], alpha=0.3, lw=1)
-        return render
+    def render(ax):
+        lmj.cubes.plots.show_cubes(ax, targets, target_num=target)
+        for (marker, source), (mean, stderr) in agg.items():
+            mx, my, mz = mean.x, mean.y, mean.z
+            sx, sy, sz = stderr.x, stderr.y, stderr.z
+            for t in np.linspace(0, num_frames, 7).astype(int):
+                x, y, z = lmj.cubes.plots.ellipsoid(
+                    [mx[-t], my[-t], mz[-t]],
+                    [sx[-t], sy[-t], sz[-t]])
+                ax.plot_wireframe(x, z, y, color=COLORS[marker], alpha=0.3, lw=1)
 
     anim = lmj.plot.rotate_3d(
-        show, output=output,
-        azim=(0, 90), elev=(5, 20),
-        fig=dict(figsize=(10, 4.8)),
-    )
+        lmj.cubes.plots.show_3d(render),
+        output=output,
+        azim=(0, 90),
+        elev=(5, 20),
+        fig=dict(figsize=(10, 4.8)))
     if not output:
         lmj.plot.show()
 

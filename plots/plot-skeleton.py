@@ -13,39 +13,23 @@ TARGETS = ((0, -1), (1, -1), (8, -100), (4, -1))
     output=('save movie in this output filename', 'option'),
 )
 def main(root, pattern='*/*block01/*trial01*.csv.gz', dropouts=None, output=None):
-    def show(ax):
-        ax.w_xaxis.set_pane_color((1, 1, 1, 1))
-        ax.w_yaxis.set_pane_color((1, 1, 1, 1))
-        ax.w_zaxis.set_pane_color((1, 1, 1, 1))
-        ax.set_xlim(-2, 2)
-        ax.set_xticks([-2, -1, 0, 1, 2])
-        ax.set_xticklabels([])
-        ax.set_ylim(-2, 2)
-        ax.set_yticks([-2, -1, 0, 1, 2])
-        ax.set_yticklabels([])
-        ax.set_zlim(0, 2)
-        ax.set_zticks([0, 1, 2])
-        ax.set_zticklabels([])
-        def render():
-            cubes = True
-            for t in lmj.cubes.Experiment(root).trials_matching(pattern):
-                t.load()
-                t.add_velocities(smooth=3)
-                if cubes:
-                    lmj.cubes.plots.show_cubes(ax, t)
-                    cubes = False
-                if dropouts:
-                    t.mask_dropouts()
-                for T, F in TARGETS:
-                    mov = t.movement_to(T)
-                    if len(mov.df):
-                        lmj.cubes.plots.skeleton(ax, mov, F, lw=2)
-        return render
+    def render(ax):
+        cubes = True
+        for t in lmj.cubes.Experiment(root).trials_matching(pattern):
+            t.load()
+            t.add_velocities(smooth=3)
+            if cubes:
+                lmj.cubes.plots.show_cubes(ax, t)
+                cubes = False
+            if dropouts:
+                t.mask_dropouts()
+            for T, F in TARGETS:
+                mov = t.movement_to(T)
+                if len(mov.df):
+                    lmj.cubes.plots.skeleton(ax, mov, F, lw=2)
     anim = lmj.plot.rotate_3d(
-        show, output=output,
-        azim=(0, 90), elev=(5, 20),
-        fig=dict(figsize=(10, 4.8)),
-    )
+        lmj.cubes.plots.show_3d(render),
+        output=output, azim=(0, 90), elev=(5, 20), fig=dict(figsize=(10, 4.8)))
     if not output:
         lmj.plot.show()
 

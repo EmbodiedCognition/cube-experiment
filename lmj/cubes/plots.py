@@ -22,6 +22,37 @@ def space(show_afterwards=True):
         lmj.plot.show()
 
 
+def show_3d(render):
+    '''Wrap a rendering function in a show callable for 3D animation.
+
+    Paramaters
+    ----------
+    render : callable
+        A function to call that renders our 3D plot. This callable must take
+        exactly one argument: the axis on which to render the plot.
+
+    Returns
+    -------
+    show : callable
+        A function that lmj.plot.rotate_3d will call to initialize a plot.
+    '''
+    def show(ax):
+        ax.w_xaxis.set_pane_color((1, 1, 1, 1))
+        ax.w_yaxis.set_pane_color((1, 1, 1, 1))
+        ax.w_zaxis.set_pane_color((1, 1, 1, 1))
+        ax.set_xlim(-2, 2)
+        ax.set_xticks([-2, -1, 0, 1, 2])
+        ax.set_xticklabels([])
+        ax.set_ylim(-2, 2)
+        ax.set_yticks([-2, -1, 0, 1, 2])
+        ax.set_yticklabels([])
+        ax.set_zlim(0, 2)
+        ax.set_zticks([0, 1, 2])
+        ax.set_zticklabels([])
+        return lambda: render(ax)
+    return show
+
+
 def show_cubes(ax, trial, target_num=None):
     '''Plot markers for target cubes on the given axes.
 
