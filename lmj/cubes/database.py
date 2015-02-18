@@ -253,7 +253,7 @@ class Movement(DF):
             c[:-2] for c in self.columns
             if c.startswith('marker') and
             c[6:8].isdigit() and
-            c[-2:] == '-c'))
+            c[-2:] == '-x'))
 
     @property
     def distance_to_target(self):
