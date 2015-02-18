@@ -25,9 +25,9 @@ def main(root, pattern='*/*block03*/*trial00*.csv.gz', dropouts=None, output=Non
                 t.mask_dropouts()
             for i, marker in enumerate(MARKERS.split()):
                 df = t.trajectory(marker)
-                ax.plot(np.asarray(df.x)[4:-4],
-                        np.asarray(df.z)[4:-4],
-                        zs=np.asarray(df.y)[4:-4],
+                ax.plot(np.asarray(df.x),
+                        np.asarray(df.z),
+                        zs=np.asarray(df.y),
                         color=lmj.plot.COLOR11[i],
                         alpha=0.7, lw=2)
     anim = lmj.plot.rotate_3d(
