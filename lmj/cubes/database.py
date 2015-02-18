@@ -411,8 +411,10 @@ class Movement(DF):
         '''
         dt = 2 * self.approx_delta_t
         for c in self.marker_channel_columns:
-            self.df['{}-v{}'.format(c[:-2], c[-1])] = pd.rolling_mean(
-                self.df[c].diff(2).shift(-1) / dt, smooth, center=True)
+            v = self.df[c].diff(2).shift(-1) / dt
+            if smooth:
+                v = pd.rolling_mean(v, smooth, center=True)
+            self.df['{}-v{}'.format(c[:-2], c[-1])] = v
 
     def add_accelerations(self, smooth=11):
         '''Add columns to the data that reflect the instantaneous acceleration.
