@@ -4,6 +4,7 @@ import climate
 import lmj.cubes
 import numpy as np
 import pandas as pd
+import scipy.linalg
 import scipy.signal
 import theano
 import theano.tensor as TT
