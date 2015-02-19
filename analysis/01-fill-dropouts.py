@@ -219,7 +219,7 @@ def lowpass(df, freq=10., order=4):
     window=('process windows of T frames', 'option', None, int),
     freq=('lowpass filter at N Hz', 'option', None, float),
 )
-def main(root, output, pattern='*', frame_rate=100, tol=0.0001, window=20, freq=20):
+def main(root, output, pattern='*', frame_rate=100, tol=0.0001, window=20, freq=None):
     for t in lmj.cubes.Experiment(root).trials_matching(pattern):
         t.load()
         t.mask_dropouts()
@@ -231,7 +231,8 @@ def main(root, output, pattern='*', frame_rate=100, tol=0.0001, window=20, freq=
             fill(t.df, tol=tol, window=window)
         except Exception as e:
             logging.exception('error filling dropouts!')
-        lowpass(t.df, freq)
+        if freq:
+            lowpass(t.df, freq)
         t.save(t.root.replace(root, output))
 
 
