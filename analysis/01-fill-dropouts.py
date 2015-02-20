@@ -6,10 +6,7 @@ import climate
 import lmj.cubes
 import numpy as np
 import pandas as pd
-import scipy.linalg
 import scipy.signal
-import theano
-import theano.tensor as TT
 
 logging = climate.get_logger('fill')
 
@@ -129,10 +126,15 @@ def lowpass(df, freq=10., order=4):
     '''
     nyquist = 1 / (2 * pd.Series(df.index).diff().mean())
     assert 0 < freq < nyquist
-    b, a = scipy.signal.butter(order, freq / nyquist)
+    passes = 2  # filtfilt makes two passes over the data.
+    correct = (2 ** (1 / passes) - 1) ** 0.25
+    b, a = scipy.signal.butter(order / passes, (freq / correct) / nyquist)
     for c in df.columns:
         if c.startswith('marker') and c[-1] in 'xyz':
-            df.loc[:, c] = scipy.signal.filtfilt(b, a, df[c])
+            d = df[c].interpolate().bfill()
+            s = pd.Series(scipy.signal.filtfilt(b, a, d), index=df.index)
+            s.ix[0] = s[df[c[:-1] + 'c'].isnull()] = float('nan')
+            df.loc[:, c] = s
 
 
 @climate.annotate(
@@ -144,10 +146,12 @@ def lowpass(df, freq=10., order=4):
     window=('process windows of T frames', 'option', None, int),
     freq=('lowpass filter at N Hz', 'option', None, float),
 )
-def main(root, output, pattern='*', tol=0.0001, threshold=None, window=5, freq=20):
+def main(root, output, pattern='*', tol=0.0001, threshold=None, window=5, freq=10):
     for t in lmj.cubes.Experiment(root).trials_matching(pattern):
         t.load()
         t.mask_dropouts()
+        if freq:
+            lowpass(t.df, freq)
         try:
             svt(t.df, tol, threshold, window)
         except Exception as e:
