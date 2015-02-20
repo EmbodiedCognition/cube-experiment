@@ -14,8 +14,8 @@ import theano.tensor as TT
 logging = climate.get_logger('fill')
 
 
-def fill(df, tol=1e-4, window=5, gamma=1, rank=None):
-    '''Complete missing marker data using matrix completion.
+def svt(df, tol=1e-4, threshold=None, window=5):
+    '''Complete missing marker data using singular value thresholding.
 
     This method alters the given `df` in-place.
 
@@ -26,15 +26,11 @@ def fill(df, tol=1e-4, window=5, gamma=1, rank=None):
     tol : float, optional
         Continue the reconstruction process until reconstructed data is within
         this relative tolerance threshold. Defaults to 1e-4.
+    threshold : float, optional
+        Threshold for singular values. Defaults to a value computed from the
+        spectrum of singular values.
     window : int, optional
         Model windows of this many consecutive frames. Defaults to 5.
-    gamma : float, optional
-        Use this parameter to regularize the low-rank entries on the factored
-        data matrix. Defaults to 1.
-    rank : int, optional
-        Approximate the data using a matrix of this rank. Defaults to the
-        number of SVD components required to match the filled percentage of the
-        data.
     '''
     cols = [c for c in df.columns if c.startswith('marker') and c[-1] in 'xyz']
     data = df[cols]
@@ -73,60 +69,26 @@ def fill(df, tol=1e-4, window=5, gamma=1, rank=None):
     logging.info('processing windowed data %s', t.shape)
     data_norm = (w * t * t).sum()
 
-    # compute one svd to initialize the optimization parameters below.
-    u, s, v = scipy.linalg.svd(t, full_matrices=False)
-    cdf = (s / s.sum()).cumsum()
-    rank = rank or cdf.searchsorted(filled_ratio)
-    logging.info('reconstructing with rank %d (%d%%) %s',
-                 rank, 100 * cdf[rank],
-                 [(f, cdf.searchsorted(f)) for f in (0.5, 0.8, 0.9, 0.99)])
-
-    # optimization parameters
-    gamma = TT.cast(gamma, 'float32')
-    learning_rate = TT.cast(0.001, 'float32')
-    momentum = TT.cast(0.9, 'float32')
-    max_norm = TT.cast(10, 'float32')
-    one = TT.cast(1, 'float32')
-
-    # data variables.
-    data = theano.shared(t.astype('f'))
-    mask = theano.shared(w.astype('f'))
-
-    # model parameters.
-    ss = np.sqrt(np.clip(s[:rank] - s[int(np.sqrt(rank))], 0, 1e300))
-    u = theano.shared((u[:, :rank] * ss).astype('f'), name='u')
-    vu = theano.shared(np.zeros_like(u.get_value()), name='vu')
-    v = theano.shared((ss[:, None] * v[:rank]).astype('f'), name='v')
-    vv = theano.shared(np.zeros_like(v.get_value()), name='vv')
-
-    # symbolic computations, including sgd with momentum.
-    def clip(g):
-        return g * TT.minimum(one, max_norm / TT.sqrt((g * g).sum()))
-    err = data - TT.dot(u, v)
-    sqerr = (mask * err * err).sum()
-    loss = sqerr + gamma * ((u * u).sum() + (v * v).sum())
-    gu, gv = TT.grad(loss, [u, v])
-    velu = momentum * vu - learning_rate * clip(gu)
-    velv = momentum * vv - learning_rate * clip(gv)
-    fu = theano.function([], [sqerr, gu], updates=[(vu, velu), (u, u + velu)])
-    fv = theano.function([], [sqerr, gv], updates=[(vv, velv), (v, v + velv)])
+    # if the threshold is none, set it using the falloff point in the spectrum.
+    if threshold is None:
+        s = pd.Series(np.linalg.svd(t, compute_uv=False))
+        threshold = s[s.diff().diff().shift(-1).argmax()]
+        logging.info('using threshold %.2f', threshold)
 
     i = 0
     err = 1e200
-    prev_err = 1e300
-    while tol * data_norm < err < prev_err:
-        prev_err = err
-        err, gu = fu()
-        err, gv = fv()
-        if not i % 10:
-            r = w * (t - np.dot(u.get_value(), v.get_value()))
-            logging.info('%d: error %f (sanity: %f; %f mean; %s) gu %.1f gv %.1f',
-                         i, err / data_norm,
-                         (r * r).sum() / data_norm,
-                         abs(r).mean(),
-                         np.percentile(abs(r), [50, 90, 95, 99]).round(4),
-                         np.sqrt((gu * gu).sum()),
-                         np.sqrt((gv * gv).sum()))
+    x = y = np.zeros_like(t)
+    while tol * data_norm < err:
+        r = (t - x) * w
+        y += r
+        u, s, v = np.linalg.svd(y, full_matrices=False)
+        s = np.clip(s - threshold, 0, np.inf)
+        x = np.dot(u * s, v)
+        err = (r * r).sum()
+        logging.info('%d: error %f; mean %f; %s',
+                     i, err / data_norm,
+                     abs(r).mean(),
+                     np.percentile(abs(r), [50, 90, 95, 99]).round(4))
         i += 1
 
     def avg(xs):
@@ -135,7 +97,7 @@ def fill(df, tol=1e-4, window=5, gamma=1, rank=None):
     def idx(a, b=None):
         return slice(df.index[a], df.index[b] if b else df.index[a])
 
-    parts = np.split(np.dot(u.get_value(), v.get_value()), window, axis=1)
+    parts = np.split(x, window, axis=1)
     w = window - 1
     f = num_frames - 1
 
@@ -179,16 +141,16 @@ def lowpass(df, freq=10., order=4):
     output='save smoothed data files to this directory tree',
     pattern=('process only trials matching this pattern', 'option'),
     tol=('fill dropouts with this error tolerance', 'option', None, float),
+    threshold=('SVT threshold for singular values', 'option', None, float),
     window=('process windows of T frames', 'option', None, int),
-    rank=('reconstruct data using matrix of this rank', 'option', None, int),
     freq=('lowpass filter at N Hz', 'option', None, float),
 )
-def main(root, output, pattern='*', tol=0.0001, window=5, rank=400, freq=20):
+def main(root, output, pattern='*', tol=0.0001, threshold=None, window=5, freq=20):
     for t in lmj.cubes.Experiment(root).trials_matching(pattern):
         t.load()
         t.mask_dropouts()
         try:
-            fill(t.df, tol=tol, window=window, rank=rank)
+            svt(t.df, tol, threshold, window)
         except Exception as e:
             logging.exception('error filling dropouts!')
         if freq:
