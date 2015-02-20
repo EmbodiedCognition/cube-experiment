@@ -85,9 +85,8 @@ def svt(df, tol=1e-4, threshold=None, window=5):
         s = np.clip(s - threshold, 0, np.inf)
         x = np.dot(u * s, v)
         err = (r * r).sum()
-        logging.info('%d: error %f; mean %f; %s',
-                     i, err / data_norm,
-                     abs(r).mean(),
+        logging.info('%d: error %f (%d); mean %f; %s',
+                     i, err / data_norm, len(s.nonzero()[0]), abs(r).mean(),
                      np.percentile(abs(r), [50, 90, 95, 99]).round(4))
         i += 1
 
