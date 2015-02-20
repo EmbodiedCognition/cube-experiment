@@ -19,8 +19,8 @@ class Window(lmj.viewer.Window):
     def __init__(self, trial, paused=False):
         super().__init__(paused=paused)
 
-        self._frames = iter(trial.df[trial.marker_position_columns].values.reshape(
-            (len(trial.df), -1, 3)))
+        values = trial.df[[c for c in trial.columns if c.startswith('marker')]].values
+        self._frames = iter(values.reshape((len(trial.df), -1, 4)))
         self._frame_rate = 1 / trial.approx_delta_t
 
         self.targets = trial.df[['target-x', 'target-y', 'target-z']].drop_duplicates().values
@@ -47,16 +47,17 @@ class Window(lmj.viewer.Window):
 
     def render(self, dt):
         for x, y, z in self.targets:
-            self.draw_sphere(color=RED + (0.7, ),
+            self.draw_sphere(color=BLACK + (0.7, ),
                              translate=(x, z, y),
                              scale=(0.1, 0.1, 0.1))
 
-        x = y = z = 0
         for t, trail in enumerate(self._trails):
+            if not len(trail):
+                continue
             self.set_color(*(COLORS[t % len(COLORS)] + (0.7, )))
-            self.draw_lines((x, z, y) for x, y, z in trail)
-            x, y, z = trail[-1]
-            self.draw_sphere(translate=(x, z, y), scale=(0.05, 0.05, 0.05))
+            self.draw_lines(t for t in trail if t is not None)
+            if trail[-1] is not None:
+                self.draw_sphere(translate=trail[-1], scale=(0.02, 0.02, 0.02))
 
     def _reset_trails(self):
         self._trails = [collections.deque(t, self._maxlen) for t in self._trails]
@@ -68,14 +69,14 @@ class Window(lmj.viewer.Window):
             pyglet.app.exit()
 
     def step(self, dt):
-        for trail, point in zip(self._trails, self._next_frame()):
-            trail.append(point)
+        for trail, (x, y, z, c) in zip(self._trails, self._next_frame()):
+            trail.append((x, z, y) if 10 > c > 0 else None)
 
 
 def main(root, pattern):
     for t in lmj.cubes.Experiment(root).trials_matching(pattern):
         t.load()
-        t.add_velocities(smooth=0)
+        #t.add_velocities(smooth=0)
         Window(t).run()
 
 
