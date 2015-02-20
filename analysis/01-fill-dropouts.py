@@ -64,8 +64,8 @@ def svt(df, tol=1e-4, threshold=None, window=5):
     # this is more or less like a convolution with a sliding rectangular window.
     # this stacked data matrix is the one we'll want to fill in the SVT process
     # below.
-    w = np.concatenate([weights[i:num_frames-(window-1-i)] for i in range(window)], axis=1).astype(np.int8)
-    t = np.concatenate([filled[i:num_frames-(window-1-i)] for i in range(window)], axis=1).astype(np.float32)
+    w = np.concatenate([weights[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
+    t = np.concatenate([filled[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
     logging.info('processing windowed data %s', t.shape)
     data_norm = (w * t * t).sum()
 
