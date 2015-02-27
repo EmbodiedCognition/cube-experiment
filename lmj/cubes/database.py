@@ -347,15 +347,26 @@ class Movement(DF):
         '''Remove our data frame from memory.'''
         self.df = None
 
-    def mask_dropouts(self):
+    def mask_dropouts(self, max_speed=15):
         '''For each marker, replace dropout frames with nans.
 
         This method alters the movement's `df` in-place.
+
+        Parameters
+        ----------
+        max_speed : float, optional
+            Treat frames with instantaneous speed greater than this threshold
+            as dropouts. Defaults to 15 (m/s). Set to a large value to disable.
         '''
         for marker in self.marker_columns:
-            c = self.df[marker + '-c']
-            mask = c.isnull() | (c < 0) | (c > 100)
-            self.df.ix[mask, marker + '-x':marker + '-c'] = float('nan')
+            cols = ['{}-{}'.format(marker, z) for z in 'xyzc']
+            x, y, z, c = self.df[cols]
+            vx = x.diff(2).shift(-1) / dt
+            vy = y.diff(2).shift(-1) / dt
+            vz = z.diff(2).shift(-1) / dt
+            speed = np.sqrt(vx ** 2 + vy ** 2 + vz ** 2)
+            mask = c.isnull() | (c < 0) | (c > 100) | (speed > max_speed)
+            self.df.ix[mask, cols] = float('nan')
 
     def recenter(self, center):
         '''Recenter all position data relative to the given centers.
