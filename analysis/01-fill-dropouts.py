@@ -39,7 +39,7 @@ def svt(df, tol=1e-4, threshold=None, window=5):
                  num_frames, num_channels, num_entries,
                  100 * filled_ratio)
 
-    filled = data.fillna(0).values
+    filled = data.interpolate().ffill().bfill().values
     weights = (~data.isnull()).values
 
     # here we create windows of consecutive data frames, all stacked together
