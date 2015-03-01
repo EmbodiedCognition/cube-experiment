@@ -572,7 +572,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
         return Movement(self.df[mask])
 
     def matches(self, pattern):
-        return fnmatch.fnmatch(self.root, pattern)
+        return fnmatch.fnmatch(self.root, '*{}*'.format(pattern))
 
     def load(self):
         self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
