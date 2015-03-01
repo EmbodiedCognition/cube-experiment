@@ -56,34 +56,37 @@ MARKERS = [
     'marker49-l-mt-inner',
 ]
 
+SPEEDS = (0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20)
+ACCELS = (0.5, 1, 2, 5, 10, 20, 50, 100, 200)
 
 def reindex(t, root, output, frame_rate, interpolate, max_speed, max_acc):
     t.load()
+
+    def below(s, r):
+        return '{}<{}'.format((s < r).sum(), r)
+
+    # mask marker frames that are dropouts or are moving too fast.
+    ds = pd.Series(t.df.index, index=t.df.index)
+    dt = ds.shift(-1) - ds.shift(1)
+    for marker in t.marker_columns:
+        c = t.df[marker + '-c']
+        x = t.trajectory(marker)
+        v = x.diff(2).shift(-1).div(dt, axis='index')
+        a = v.diff(2).shift(-1).div(dt, axis='index')
+        spd = np.sqrt((v * v).sum(axis=1))
+        acc = np.sqrt((a * a).sum(axis=1))
+        mask = (c < 0) | (spd > max_speed) | (acc > max_acc)
+        logging.info(
+            '%s %s %s %s: %d frames, masking %d = %d dropouts + %d spd (%s) + %d acc (%s)',
+            t.subject.key, t.block.key, t.key, marker, len(t.df), mask.sum(), (c < 0).sum(),
+            (spd > max_speed).sum(), ' '.join(below(spd, r) for r in SPEEDS),
+            (acc > max_acc).sum(), ' '.join(below(acc, r) for r in ACCELS))
+        t.df.ix[mask, marker + '-x':marker + '-c'] = float('nan')
 
     # drop unusable marker data.
     for c in t.columns:
         if c.startswith('marker') and c[:-2] not in MARKERS:
             del t.df[c]
-
-    # mask marker frames that are dropouts or are moving too fast.
-    ds = pd.Series(t.df.index, index=t.df.index)
-    dt = ds.shift(-1) - ds.shift(-1)
-    for marker in t.marker_columns:
-        cols = ['{}-{}'.format(marker, z) for z in 'xyzc']
-        x, y, z, c = (self.df[c] for c in cols)
-        drops = c.isnull() | (c < 0) | (c > 100)
-        vx = x.diff(2).shift(-1) / dt
-        vy = y.diff(2).shift(-1) / dt
-        vz = z.diff(2).shift(-1) / dt
-        speed = np.sqrt(vx ** 2 + vy ** 2 + vz ** 2) > max_speed
-        ax = vx.diff(2).shift(-1) / dt
-        ay = vy.diff(2).shift(-1) / dt
-        az = vz.diff(2).shift(-1) / dt
-        acc = np.sqrt(ax ** 2 + ay ** 2 + az ** 2) > max_acc
-        mask = drops | speed | acc
-        logging.info('%s %s %s %s: masking %d: %d dropouts, %d vel, %d acc',
-                     t.subject.key, t.block.key, t.key, marker,
-                     mask.sum(), drops.sum(), speed.sum(), acc.sum())
 
     # reindex to regularly-spaced temporal index values.
     posts = np.arange(0, t.df.index[-1], 1. / frame_rate)
@@ -92,9 +95,9 @@ def reindex(t, root, output, frame_rate, interpolate, max_speed, max_acc):
         if not c.startswith('marker'):
             df[c] = df[c].bfill().ffill()
         elif c[-1] in 'xyz':
-            df[c] = df[c].interpolate(limit=max_interpolate)
+            df[c] = df[c].interpolate(limit=interpolate)
         elif c[-1] in 'c':
-            df[c] = df[c].fillna(value=1.2345, limit=max_interpolate)
+            df[c] = df[c].fillna(value=1.2345, limit=interpolate)
     t.df = df
 
     t.save(t.root.replace(root, output))
