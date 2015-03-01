@@ -150,8 +150,6 @@ def main(root, output, pattern='*', tol=0.0001, threshold=None, window=5, freq=1
     for t in lmj.cubes.Experiment(root).trials_matching(pattern):
         t.load()
         t.mask_dropouts()
-        if freq:
-            lowpass(t.df, freq)
         try:
             svt(t.df, tol, threshold, window)
         except Exception as e:
