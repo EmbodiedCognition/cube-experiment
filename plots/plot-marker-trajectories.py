@@ -13,7 +13,7 @@ MARKERS = 'r-fing-index l-fing-index r-heel r-head-front'
     dropouts=('replace dropout frames with nans', 'option'),
     output=('save movie in this output filename', 'option'),
 )
-def main(root, pattern='*/*block03*/*trial00*.csv.gz', dropouts=None, output=None):
+def main(root, pattern='block03*/*trial00', dropouts=None, output=None):
     def render(ax):
         cubes = True
         for t in lmj.cubes.Experiment(root).trials_matching(pattern):
