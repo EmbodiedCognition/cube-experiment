@@ -3,6 +3,8 @@
 import climate
 import joblib
 import lmj.cubes
+import numpy as np
+import pandas as pd
 
 logging = climate.get_logger('reindex')
 
@@ -55,13 +57,46 @@ MARKERS = [
 ]
 
 
-def reindex(t, root, output, frame_rate, interpolate):
+def reindex(t, root, output, frame_rate, interpolate, max_speed, max_acc):
     t.load()
-    t.mask_dropouts()
-    t.reindex(frame_rate, interpolate)
+
+    # drop unusable marker data.
     for c in t.columns:
         if c.startswith('marker') and c[:-2] not in MARKERS:
             del t.df[c]
+
+    # mask marker frames that are dropouts or are moving too fast.
+    ds = pd.Series(t.df.index, index=t.df.index)
+    dt = ds.shift(-1) - ds.shift(-1)
+    for marker in t.marker_columns:
+        cols = ['{}-{}'.format(marker, z) for z in 'xyzc']
+        x, y, z, c = (self.df[c] for c in cols)
+        drops = c.isnull() | (c < 0) | (c > 100)
+        vx = x.diff(2).shift(-1) / dt
+        vy = y.diff(2).shift(-1) / dt
+        vz = z.diff(2).shift(-1) / dt
+        speed = np.sqrt(vx ** 2 + vy ** 2 + vz ** 2) > max_speed
+        ax = vx.diff(2).shift(-1) / dt
+        ay = vy.diff(2).shift(-1) / dt
+        az = vz.diff(2).shift(-1) / dt
+        acc = np.sqrt(ax ** 2 + ay ** 2 + az ** 2) > max_acc
+        mask = drops | speed | acc
+        logging.info('%s %s %s %s: masking %d: %d dropouts, %d vel, %d acc',
+                     t.subject.key, t.block.key, t.key, marker,
+                     mask.sum(), drops.sum(), speed.sum(), acc.sum())
+
+    # reindex to regularly-spaced temporal index values.
+    posts = np.arange(0, t.df.index[-1], 1. / frame_rate)
+    df = t.df.reindex(posts, method='bfill', limit=1)
+    for c in df.columns:
+        if not c.startswith('marker'):
+            df[c] = df[c].bfill().ffill()
+        elif c[-1] in 'xyz':
+            df[c] = df[c].interpolate(limit=max_interpolate)
+        elif c[-1] in 'c':
+            df[c] = df[c].fillna(value=1.2345, limit=max_interpolate)
+    t.df = df
+
     t.save(t.root.replace(root, output))
 
 
@@ -71,11 +106,13 @@ def reindex(t, root, output, frame_rate, interpolate):
     pattern=('process only trials matching this pattern', 'option'),
     frame_rate=('reindex frames to this rate', 'option', None, float),
     interpolate=('interpolate gaps of this many frames', 'option', None, int),
+    max_speed=('treat frames with > speed as dropouts', 'option', None, float),
+    max_acc=('treat frames with > acc as dropouts', 'option', None, float),
 )
-def main(root, output, pattern='*', frame_rate=100, interpolate=33):
+def main(root, output, pattern='*', frame_rate=100, interpolate=3, max_speed=5, max_acc=100):
     trials = lmj.cubes.Experiment(root).trials_matching(pattern)
     work = joblib.delayed(reindex)
-    args = root, output, frame_rate, interpolate
+    args = root, output, frame_rate, interpolate, max_speed, max_acc
     joblib.Parallel(-1)(work(t, *args) for t in trials)
 
 

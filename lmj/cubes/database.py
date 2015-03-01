@@ -347,26 +347,14 @@ class Movement(DF):
         '''Remove our data frame from memory.'''
         self.df = None
 
-    def mask_dropouts(self, max_speed=15):
+    def mask_dropouts(self):
         '''For each marker, replace dropout frames with nans.
 
         This method alters the movement's `df` in-place.
-
-        Parameters
-        ----------
-        max_speed : float, optional
-            Treat frames with instantaneous speed greater than this threshold
-            as dropouts. Defaults to 15 (m/s). Set to a large value to disable.
         '''
         for marker in self.marker_columns:
-            cols = ['{}-{}'.format(marker, z) for z in 'xyzc']
-            x, y, z, c = self.df[cols]
-            vx = x.diff(2).shift(-1) / dt
-            vy = y.diff(2).shift(-1) / dt
-            vz = z.diff(2).shift(-1) / dt
-            speed = np.sqrt(vx ** 2 + vy ** 2 + vz ** 2)
-            mask = c.isnull() | (c < 0) | (c > 100) | (speed > max_speed)
-            self.df.ix[mask, cols] = float('nan')
+            c = self.df[marker + '-c']
+            self.df.ix[c.isnull(), marker + '-x':marker + '-c'] = float('nan')
 
     def recenter(self, center):
         '''Recenter all position data relative to the given centers.
@@ -419,7 +407,8 @@ class Movement(DF):
         smooth : int, optional
             Number of frames over which to smooth velocity data. Defaults to 11.
         '''
-        dt = 2 * self.approx_delta_t
+        ds = pd.Series(self.df.index, index=self.df.index)
+        dt = ds.shift(-1) - ds.shift(-1)
         for c in self.marker_channel_columns:
             v = self.df[c].diff(2).shift(-1) / dt
             if smooth:
@@ -434,32 +423,11 @@ class Movement(DF):
         smooth : int, optional
             Number of frames over which to smooth acceleration data. Defaults to 11.
         '''
-        dt = 2 * self.approx_delta_t
+        ds = pd.Series(self.df.index, index=self.df.index)
+        dt = ds.shift(-1) - ds.shift(-1)
         for c in self.marker_velocity_columns:
             self.df['{}-v{}'.format(c[:-2], c[-1])] = pd.rolling_mean(
                 self.df[c].diff(2).shift(-1) / dt, smooth, center=True)
-
-    def reindex(self, frame_rate=100., max_interpolate=10):
-        '''Reindex the data frame to a regularly spaced time grid.
-
-        The existing `df` attribute of this Trial will be replaced.
-
-        Parameters
-        ----------
-        frame_rate : float, optional
-            Frame rate for desired time offsets. Defaults to 100Hz.
-        '''
-        posts = np.arange(0, self.index[-1], 1. / frame_rate)
-        df = self.df.reindex(posts, method='bfill', limit=1)
-        for c in df.columns:
-            if not c.startswith('marker'):
-                df[c] = df[c].bfill().ffill()
-            elif c[-1] in 'xyz':
-                df[c] = df[c].interpolate(limit=max_interpolate)
-            elif c[-1] in 'c':
-                df[c] = df[c].fillna(value=1.2345, limit=max_interpolate)
-        self.df = df
-        self._debug('counts after reindexing')
 
     def mask_fiddly_target_frames(self, enter_threshold=0.25, exit_threshold=0.5):
         '''This code attempts to normalize the moment of target contact.
