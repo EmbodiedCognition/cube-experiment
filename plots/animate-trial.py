@@ -3,7 +3,7 @@
 import climate
 import collections
 import lmj.cubes
-import lmj.viewer
+import pagoda.viewer
 
 BLACK = (0, 0, 0)
 WHITE = (1, 1, 1)
@@ -15,15 +15,16 @@ BLUE = (0.2, 0.3, 0.9)
 COLORS = (WHITE, RED, YELLOW, GREEN, BLUE, ORANGE)
 
 
-class Window(lmj.viewer.Window):
+class Window(pagoda.viewer.Window):
     def __init__(self, trial, paused=False):
         super().__init__(paused=paused)
 
         values = trial.df[[c for c in trial.columns if c.startswith('marker')]].values
-        self._frames = iter(values.reshape((len(trial.df), -1, 4)))
+        values = values.reshape((len(trial.df), -1, 4))
+        self._frames = iter(values)
         self._frame_rate = 1 / trial.approx_delta_t
 
-        self.targets = trial.df[['target-x', 'target-y', 'target-z']].drop_duplicates().values
+        self.targets = trial.target_trajectory.drop_duplicates().values
 
         self._maxlen = 4
         self._trails = [[] for _ in range(len(trial.marker_columns))]
