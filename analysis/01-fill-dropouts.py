@@ -84,7 +84,7 @@ def svt(df, tol=1e-4, threshold=None, window=5):
         x = np.dot(u * s, v)
         logging.info('%d: error %f (%d); mean %f; %s',
                      i, err / data_norm, len(s.nonzero()[0]), abs(e[w]).mean(),
-                     np.percentile(e[w], [50, 90, 95, 99]).round(4))
+                     np.percentile(abs(e[w]), [50, 90, 95, 99]).round(4))
         i += 1
 
     def avg(xs):
