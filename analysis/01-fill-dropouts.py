@@ -131,10 +131,7 @@ def lowpass(df, freq=10., order=4):
     b, a = scipy.signal.butter(order / passes, (freq / correct) / nyquist)
     for c in df.columns:
         if c.startswith('marker') and c[-1] in 'xyz':
-            d = df[c].interpolate().bfill()
-            s = pd.Series(scipy.signal.filtfilt(b, a, d), index=df.index)
-            s.ix[0] = s[df[c[:-1] + 'c'].isnull()] = float('nan')
-            df.loc[:, c] = s
+            df.loc[:, c] = scipy.signal.filtfilt(b, a, df[c])
 
 
 @climate.annotate(
