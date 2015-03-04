@@ -484,12 +484,38 @@ class Movement(DF):
         logging.info('masked %d fiddly of %d frames -- %.1f %% of trial',
                      sum(mask), len(mask), 100 * sum(mask) / len(mask))
 
+    def convert_markers_to_z_scores(self):
+        '''Convert marker positions to z-scores.
+
+        Returns
+        =======
+        stats : pandas.DataFrame
+            A data frame containing summary statistics. The index for this frame
+            contains 'mean' and 'std' keys, and the columns correspond to marker
+            channel columns.
+        '''
+        df = self.df[self.marker_channel_columns]
+        stats = pd.DataFrame(dict(mu=df.mean(), sigma=df.std()))
+        for c in self.marker_channel_columns:
+            self.df[c] -= stats.mu[c]
+            self.df[c] /= stats.sigma[c]
+        return stats
+
     def make_body_relative(self):
-        '''Translate and rotate marker data so that it's body-relative.'''
+        '''Translate and rotate marker data so that it's body-relative.
+
+        Returns
+        =======
+        stats : pandas.DataFrame
+            A data frame containing z-score summary statistics. The index for
+            this frame contains 'mean' and 'std' keys, and the columns
+            correspond to marker channel columns.
+        '''
         t = self.trajectory
         self.recenter((t('r-hip') + t('r-ilium') + t('l-hip') + t('l-ilium')) / 4)
         r = ((t('r-hip') - t('r-ilium')) + (t('l-hip') - t('l-ilium'))) / 2
         self.rotate_heading(np.arctan2(r.z, r.x))
+        return self.convert_markers_to_z_scores()
 
     def make_target_relative(self):
         '''Translate and rotate marker data so it's relative to the target.'''
