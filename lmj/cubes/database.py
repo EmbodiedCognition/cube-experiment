@@ -199,6 +199,7 @@ class Movement(DF):
 
     @property
     def effector_trajectory(self):
+        '''Get the trajectory of the end effector during this movement/trial.'''
         return self.trajectory(self.lookup_marker(self.df.effector.iloc[0]))
 
     @property
@@ -249,11 +250,10 @@ class Movement(DF):
     @property
     def marker_columns(self):
         '''Get a list of the column prefixes for marker data.'''
-        return sorted(set(
-            c[:-2] for c in self.columns
-            if c.startswith('marker') and
-            c[6:8].isdigit() and
-            c[-2:] == '-x'))
+        return sorted(set(c[:-2] for c in self.columns
+                          if c.startswith('marker') and
+                          c[6:8].isdigit() and
+                          c[-2:] == '-x'))
 
     @property
     def distance_to_target(self):
