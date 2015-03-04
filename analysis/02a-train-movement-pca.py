@@ -3,6 +3,7 @@
 import climate
 import lmj.cubes
 import lmj.pca
+import numpy as np
 import os
 import pandas as pd
 
@@ -23,13 +24,14 @@ def main(root, output, pattern='*', n=5):
     trials = lmj.cubes.Experiment(root).load_sample(pattern, n)
 
     body = lmj.cubes.Movement(pd.concat([t.df for t in trials]))
-    body.make_body_relative()
+    stats = body.make_body_relative()
     body.add_velocities()
 
     pca = lmj.pca.PCA()
     pca.fit(body.df[body.marker_channel_columns])
     for v in PROBES:
         print('{:.1f}%: {} body components'.format(100 * v, pca.num_components(v)))
+    np.savez(os.path.join(output, 'zscores-body-relative.npz'), stats)
     pca.save(os.path.join(output, 'pca-body-relative.npz'))
 
     goal = lmj.cubes.Movement(pd.concat([t.df for t in trials]))
