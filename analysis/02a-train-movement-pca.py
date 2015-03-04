@@ -31,7 +31,7 @@ def main(root, output, pattern='*', n=5):
     pca.fit(body.df[body.marker_channel_columns])
     for v in PROBES:
         print('{:.1f}%: {} body components'.format(100 * v, pca.num_components(v)))
-    np.savez(os.path.join(output, 'zscores-body-relative.npz'), stats)
+    stats.to_csv(os.path.join(output, 'zscores-body-relative.csv'))
     pca.save(os.path.join(output, 'pca-body-relative.npz'))
 
     goal = lmj.cubes.Movement(pd.concat([t.df for t in trials]))
