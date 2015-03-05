@@ -10,6 +10,12 @@ import scipy.signal
 
 logging = climate.get_logger('fill')
 
+CENTERS = [
+    'marker34-l-ilium',
+    'marker35-r-ilium',
+    'marker36-r-hip',
+    'marker37-r-knee',
+]
 
 def svt(df, tol=1e-4, threshold=None, window=5):
     '''Complete missing marker data using singular value thresholding.
@@ -39,7 +45,18 @@ def svt(df, tol=1e-4, threshold=None, window=5):
                  num_frames, num_channels, num_entries,
                  100 * filled_ratio)
 
-    filled = data.interpolate().ffill().bfill().values
+    # interpolate dropouts linearly.
+    filled = data.interpolate().ffill().bfill()
+    center = pd.DataFrame(dict(x=filled[[m + '-x' for m in CENTERS]].mean(axis=1),
+                               y=filled[[m + '-y' for m in CENTERS]].mean(axis=1),
+                               z=filled[[m + '-z' for m in CENTERS]].mean(axis=1)))
+
+    # shift the entire mocap recording by the location of the CENTERS (basically
+    # the hip markers).
+    for c in cols:
+        filled[c] -= center[c[-1]]
+
+    filled = filled.values
     weights = (~data.isnull()).values
 
     # here we create windows of consecutive data frames, all stacked together
@@ -109,6 +126,11 @@ def svt(df, tol=1e-4, threshold=None, window=5):
     for i in range(window):
         df.loc[idx(i), cols] = avg(parts[i - j][j] for j in range(i, -1, -1))
         df.loc[idx(f - i), cols] = avg(parts[w - (i - j + 1)][-j] for j in range(i+1, 0, -1))
+
+    # move our interpolated data back out to the world by restoring the
+    # locations of the CENTERS.
+    for c in cols:
+        df[c] += center[c[-1]]
 
 
 def lowpass(df, freq=10., order=4):
