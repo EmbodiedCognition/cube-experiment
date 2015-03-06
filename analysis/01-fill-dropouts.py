@@ -185,7 +185,11 @@ def main(root, output, pattern='*', tol=0.0001, threshold=None, window=5, freq=1
     for t in lmj.cubes.Experiment(root).trials_matching(pattern):
         t.load()
         t.mask_dropouts()
-        svt(t.df, tol, threshold, window)
+        try:
+            svt(t.df, tol, threshold, window)
+        except Exception as e:
+            logging.exception('error filling dropouts!')
+            continue
         if freq:
             lowpass(t.df, freq)
         t.save(t.root.replace(root, output))
