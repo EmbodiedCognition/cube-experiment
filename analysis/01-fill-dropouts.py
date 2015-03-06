@@ -97,6 +97,8 @@ def svt(df, tol=1e-4, threshold=None, window=5):
     data_norm = (w * t * t).sum()
     logging.info('processing windowed data %s: norm %s', t.shape, data_norm)
 
+    assert np.isfinite(data_norm)
+
     # if the threshold is none, set it using the falloff point in the spectrum.
     if threshold is None:
         s = pd.Series(np.linalg.svd(t, compute_uv=False))
