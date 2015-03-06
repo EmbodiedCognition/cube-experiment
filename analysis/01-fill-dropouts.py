@@ -17,6 +17,13 @@ CENTERS = [
     'marker37-r-knee',
 ]
 
+BUDDIES = {
+    'marker41-r-mt-outer-x': 'marker42-r-mt-inner-x',
+    'marker41-r-mt-outer-y': 'marker42-r-mt-inner-y',
+    'marker41-r-mt-outer-z': 'marker42-r-mt-inner-z',
+}
+
+
 def svt(df, tol=1e-4, threshold=None, window=5):
     '''Complete missing marker data using singular value thresholding.
 
@@ -44,6 +51,13 @@ def svt(df, tol=1e-4, threshold=None, window=5):
                  num_entries - data.count().sum(),
                  num_frames, num_channels, num_entries,
                  100 * filled_ratio)
+
+    # if a column is missing, duplicate another "buddy" column plus some noise.
+    for c in cols:
+        if data[c].count() == 0:
+            logging.info('%s: no visible values!!', c)
+            buddy = data[BUDDIES[c]]
+            data.loc[:, c] = buddy + buddy.std() * np.random.randn(len(buddy))
 
     # interpolate dropouts linearly.
     filled = data.interpolate().ffill().bfill()
@@ -80,8 +94,8 @@ def svt(df, tol=1e-4, threshold=None, window=5):
     # below.
     w = np.concatenate([weights[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
     t = np.concatenate([filled[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
-    logging.info('processing windowed data %s', t.shape)
     data_norm = (w * t * t).sum()
+    logging.info('processing windowed data %s: norm %s', t.shape, data_norm)
 
     # if the threshold is none, set it using the falloff point in the spectrum.
     if threshold is None:
