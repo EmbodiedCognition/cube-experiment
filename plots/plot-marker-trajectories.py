@@ -5,7 +5,7 @@ import lmj.cubes
 import lmj.plot
 import numpy as np
 
-MARKERS = 'r-fing-index l-fing-index r-heel r-head-front'
+MARKERS = 'r-fing-index l-fing-index r-heel r-head-front r-hip'
 
 @climate.annotate(
     root='load experiment data from this directory',
