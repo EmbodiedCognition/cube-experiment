@@ -82,8 +82,6 @@ class Trial(vrlab.Trial):
         self.write_records()
 
     def write_records(self):
-        effector = suit.MARKER_LABELS[self.block.effector]
-
         stamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         output = os.path.join(
             self.block.output,
@@ -105,7 +103,7 @@ class Trial(vrlab.Trial):
 
         # write data frames
         for elapsed, prev, curr, frame in self.records:
-            w('{},{}', elapsed, effector)
+            w('{},{}', elapsed, self.block.effector)
             w(',{t.index},{t.center[0]},{t.center[1]},{t.center[2]}', t=prev)
             w(',{t.index},{t.center[0]},{t.center[1]},{t.center[2]}', t=curr)
             for i in range(len(frame)):
