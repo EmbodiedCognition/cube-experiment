@@ -3,38 +3,44 @@
 import climate
 import collections
 import joblib
+import lmj.cubes
+import lmj.plot
+import numpy as np
 
 logging = climate.get_logger('count')
-
-import database
 
 
 def count(trial):
     trial.load()
     trial.mask_dropouts()
-    trial.reindex(100)
-    markers = []
-    for m in trial.marker_columns:
-        s = trial.df[m + '-c']
-        if s.count() > 0.1 * len(s):
-            markers.append(m)
     total = len(trial.df)
-    full = len(trial.df[[m + '-c' for m in markers]].dropna(axis=0, thresh=2))
+    markers = {m: trial.df[m + '-c'].count() / total for m in trial.marker_columns}
+    full = len(trial.df[[m + '-c' for m in markers]].dropna(axis=0))
     logging.info('%s %s %s: %d rows, %d full (%.1f%%)',
                  trial.subject.key, trial.block.key, trial.key,
                  total, full, 100 * full / total)
     return markers
 
 
+PERCENTILES = [1, 2, 5, 10, 20, 50, 80, 90, 95, 98, 99]
+
+
 def main(root):
-    trials = database.Experiment(root).trials_matching('*')
+    trials = lmj.cubes.Experiment(root).trials_matching('*')
     counts = collections.defaultdict(int)
+    percents = collections.defaultdict(list)
     f = joblib.delayed(count)
     for markers in joblib.Parallel(-1)(f(t) for t in trials):
         for m in markers:
-            counts[m] += 1
-    for m, c in sorted(counts.items(), key=lambda x: -x[1]):
-        print(c, m)
+            counts[m] += markers[m] > 0.1
+            percents[m].append(markers[m])
+    for m, c in counts.items():
+        print(m, c, *np.percentile(percents[m], PERCENTILES), sep='\t')
+    return
+    with lmj.plot.axes(spines=True) as ax:
+        for m, values in percents.items():
+            ax.hist(values, bins=np.linspace(0, 1, 127), alpha=0.5, lw=0, label=m[9:])
+        ax.legend(ncol=3, loc=0)
 
 
 if __name__ == '__main__':
