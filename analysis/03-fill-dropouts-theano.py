@@ -12,26 +12,50 @@ import theano.tensor as TT
 
 logging = climate.get_logger('fill')
 
+CENTERS = [
+    'marker34-l-ilium',
+    'marker35-r-ilium',
+    'marker36-r-hip',
+    'marker37-r-knee',
+]
 
-def fill(df, tol=1e-4, window=5, gamma=1e-3):
-    '''Complete missing marker data using low-rank matrix completion.
+def svt(dfs, tol=1e-4, gamma=1, rank=None, window=5):
+    '''Complete missing marker data using singular value thresholding.
 
     This method alters the given `df` in-place.
 
     Parameters
     ----------
-    df : pd.DataFrame
-        Data frame for source data.
+    dfs : list of pd.DataFrame
+        Data frames for source data. Each frame will be interpolated, and then
+        the frames will be stacked into a single large frame to use during SVT.
+        This stacked frame will then be split and returned.
     tol : float, optional
         Continue the reconstruction process until reconstructed data is within
         this relative tolerance threshold. Defaults to 1e-4.
+    gamma : float, optional
+        Regularization for decomposition. Defaults to 1.
+    rank : int, optional
+        Use this rank for reconstructing the data. Defaults to a value computed
+        from the SVD of the data.
     window : int, optional
         Model windows of this many consecutive frames. Defaults to 5.
-    gamma : float, optional
-        Regularization penalty for low-rank matrices. Defaults to 1e-3.
+
+    Returns
+    -------
+    dfs : list of pd.DataFrame
+        A list of data frames containing data with dropouts filled in.
     '''
-    cols = [c for c in df.columns if c.startswith('marker') and c[-1] in 'xyz']
-    data = df[cols]
+    assert window > 1
+
+    cols = [c for c in dfs[0].columns if c.startswith('marker') and c[-1] in 'xyz']
+    pad = pd.DataFrame(float('nan'), index=list(range(window - 1)), columns=cols)
+    chunks, keys = [pad], [-1]
+    for i, df in enumerate(dfs):
+        chunks.extend([df[cols], pad])
+        keys.extend([i, -len(chunks)])
+    data = pd.concat(chunks, axis=0, keys=keys)
+
     num_frames, num_channels = data.shape
     num_entries = num_frames * num_channels
     filled_ratio = data.count().sum() / num_entries
@@ -40,7 +64,24 @@ def fill(df, tol=1e-4, window=5, gamma=1e-3):
                  num_frames, num_channels, num_entries,
                  100 * filled_ratio)
 
-    filled = data.fillna(0).values
+    # if a column is completely missing, refuse to process the data.
+    for c in cols:
+        if data[c].count() == 0:
+            raise ValueError('%s: no visible values!', c)
+
+    # interpolate dropouts linearly.
+    filled = data.interpolate().ffill().bfill()
+
+    # shift the entire mocap recording by the location of the CENTERS (basically
+    # the hip markers).
+    center = pd.DataFrame(
+        dict(x=filled[[m + '-x' for m in CENTERS]].mean(axis=1),
+             y=filled[[m + '-y' for m in CENTERS]].mean(axis=1),
+             z=filled[[m + '-z' for m in CENTERS]].mean(axis=1)))
+    for c in cols:
+        filled[c] -= center[c[-1]]
+
+    filled = filled.values
     weights = (~data.isnull()).values
 
     # here we create windows of consecutive data frames, all stacked together
@@ -64,13 +105,15 @@ def fill(df, tol=1e-4, window=5, gamma=1e-3):
     # below.
     w = np.concatenate([weights[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
     t = np.concatenate([filled[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
-    logging.info('processing windowed data %s', t.shape)
     data_norm = (w * t * t).sum()
+    logging.info('processing windowed data %s: norm %s', t.shape, data_norm)
+
+    assert np.isfinite(data_norm)
 
     # do an svd to compute an initialization for our model.
     u, s, v = np.linalg.svd(t, full_matrices=False)
     cdf = (s / s.sum()).cumsum()
-    rank = int(num_channels * np.log(window))
+    rank = rank or int(num_channels * np.log(window))
     logging.info('using rank %s %.1f%% %s',
                  rank, 100 * cdf[rank], cdf.searchsorted([0.5, 0.9, 0.95, 0.99]))
 
@@ -106,9 +149,8 @@ def fill(df, tol=1e-4, window=5, gamma=1e-3):
 
     i = 0
     err = 1e200
-    prev_err = 1e201
-    while tol * data_norm < err < 0.9999 * prev_err:
-        prev_err, err = err, f()
+    while tol * data_norm < err:
+        err = f()
         if not i % 10:
             r = abs(w * (t - np.dot(u.get_value(), v.get_value())))
             logging.info('%d: error %f; sanity %f; mean %f; pct %s',
@@ -119,28 +161,29 @@ def fill(df, tol=1e-4, window=5, gamma=1e-3):
     def avg(xs):
         return np.mean(list(xs), axis=0)
 
-    def idx(a, b=None):
-        return slice(df.index[a], df.index[b] if b else df.index[a])
-
     parts = np.split(np.dot(u.get_value(), v.get_value()), window, axis=1)
     w = window - 1
-    f = num_frames - 1
 
-    # super confusing bit! above, we created <window> duplicates of our data,
-    # each offset by 1 frame, and stacked (along axis 1) into a big ol matrix.
-    # here we unpack these duplicates, remove their offsets, take the average of
-    # the appropriate values, and put them back in the data frame.
-    #
-    # this is particularly tricky because the first and last <window> frames
-    # only appear a small number of times in the overall matrix. but the
-    # indexing shenanigans below seem to do the trick.
-    df.loc[idx(w, f - w), cols] = avg(parts[j][w - j:f + 1 - w - j] for j in range(window))
-    for i in range(window):
-        df.loc[idx(i), cols] = avg(parts[i - j][j] for j in range(i, -1, -1))
-        df.loc[idx(f - i), cols] = avg(parts[w - (i - j + 1)][-j] for j in range(i+1, 0, -1))
+    # above, we created <window> duplicates of our data, each offset by 1 frame,
+    # and stacked (along axis 1) into a big ol matrix. in effect, we have
+    # <window> copies of each frame; here, we unpack these duplicates, remove
+    # their offsets, take the average, and put them back in the linear frame.
+    rows = pd.MultiIndex(levels=data.index.levels,
+                         labels=[x[w:-w] for x in data.index.labels])
+    data.loc[rows, cols] = avg(
+        parts[j][w - j:num_frames - w - j] for j in range(window))
+
+    # move our interpolated data back out to the world by restoring the
+    # locations of the CENTERS.
+    for c in cols:
+        data.loc[:, c] += center.loc[:, c[-1]]
+
+    # unstack the stacked data frame.
+    for i, df in enumerate(dfs):
+        df[cols] = data.loc[(i, ), cols]
 
 
-def lowpass(df, freq=10, order=4):
+def lowpass(df, freq=10., order=4):
     '''Filter marker data using a butterworth low-pass filter.
 
     This method alters the data in `df` in-place.
@@ -160,10 +203,7 @@ def lowpass(df, freq=10, order=4):
     b, a = scipy.signal.butter(order / passes, (freq / correct) / nyquist)
     for c in df.columns:
         if c.startswith('marker') and c[-1] in 'xyz':
-            d = df[c].interpolate().bfill()
-            s = pd.Series(scipy.signal.filtfilt(b, a, d), index=df.index)
-            s.ix[0] = s[df[c[:-1] + 'c'].isnull()] = float('nan')
-            df.loc[:, c] = s
+            df.loc[:, c] = scipy.signal.filtfilt(b, a, df[c])
 
 
 @climate.annotate(
@@ -171,21 +211,26 @@ def lowpass(df, freq=10, order=4):
     output='save smoothed data files to this directory tree',
     pattern=('process only trials matching this pattern', 'option'),
     tol=('fill dropouts with this error tolerance', 'option', None, float),
+    gamma=('regularization for decomposition matrices', 'option', None, float),
+    rank=('rank of decomposition matrices', 'option', None, int),
     window=('process windows of T frames', 'option', None, int),
     freq=('lowpass filter at N Hz', 'option', None, float),
 )
-def main(root, output, pattern='*', tol=0.0001, window=5, freq=0):
-    for t in lmj.cubes.Experiment(root).trials_matching(pattern):
-        t.load()
-        t.mask_dropouts()
-        if freq:
-            lowpass(t.df, freq)
+def main(root, output, pattern='*', tol=1e-5, gamma=None, rank=None, window=5, freq=None):
+    for _, ts in lmj.cubes.Experiment(root).by_subject(pattern):
+        ts = list(ts)
+        for t in ts:
+            t.load()
+            t.mask_dropouts()
         try:
-            if window:
-                fill(t.df, tol, window)
+            svt([t.df for t in ts], tol, threshold, window)
         except Exception as e:
             logging.exception('error filling dropouts!')
-        t.save(t.root.replace(root, output))
+            continue
+        for i, t in enumerate(ts):
+            if freq:
+                lowpass(t.df, freq)
+            t.save(t.root.replace(root, output))
 
 
 if __name__ == '__main__':
