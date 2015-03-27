@@ -7,10 +7,17 @@ import lmj.cubes
 import numpy as np
 import pandas as pd
 import scipy.signal
-import theano
-import theano.tensor as TT
+import theanets
 
 logging = climate.get_logger('fill')
+
+g = climate.add_group('svt options')
+g.add_argument('--root', metavar='DIR', help='load data files from tree at DIR')
+g.add_argument('--output', metavar='DIR', help='save smoothed data files to tree at DIR')
+g.add_argument('--pattern', default='*', help='process only trials matching this pattern')
+g.add_argument('--rank', default=0.95, type=float, help='rank of decomposition matrices')
+g.add_argument('--window', type=int, help='process windows of T frames')
+g.add_argument('--freq', type=float, help='lowpass filter at N Hz')
 
 CENTERS = [
     'marker34-l-ilium',
@@ -19,7 +26,7 @@ CENTERS = [
     'marker37-r-knee',
 ]
 
-def svt(dfs, tol=1e-4, gamma=1, rank=None, window=5):
+def svt(dfs, rank=0.95, window=5):
     '''Complete missing marker data using singular value thresholding.
 
     This method alters the given `df` in-place.
@@ -30,14 +37,10 @@ def svt(dfs, tol=1e-4, gamma=1, rank=None, window=5):
         Data frames for source data. Each frame will be interpolated, and then
         the frames will be stacked into a single large frame to use during SVT.
         This stacked frame will then be split and returned.
-    tol : float, optional
-        Continue the reconstruction process until reconstructed data is within
-        this relative tolerance threshold. Defaults to 1e-4.
-    gamma : float, optional
-        Regularization for decomposition. Defaults to 1.
-    rank : int, optional
-        Use this rank for reconstructing the data. Defaults to a value computed
-        from the SVD of the data.
+    rank : float
+        Use a subspace of this dimension for reconstructing the data. If given
+        as a value in [0, 1], the rank corresponding to the given fraction of
+        the singular value spectrum will be used. Defaults to 0.95.
     window : int, optional
         Model windows of this many consecutive frames. Defaults to 5.
 
@@ -81,8 +84,8 @@ def svt(dfs, tol=1e-4, gamma=1, rank=None, window=5):
     for c in cols:
         filled[c] -= center[c[-1]]
 
-    filled = filled.values
-    weights = (~data.isnull()).values
+    filled = filled.values.astype('f')
+    weights = (~data.isnull()).values.astype('f')
 
     # here we create windows of consecutive data frames, all stacked together
     # along axis 1. for example, with 10 2-dimensional frames, we can stack them
@@ -110,72 +113,28 @@ def svt(dfs, tol=1e-4, gamma=1, rank=None, window=5):
 
     assert np.isfinite(data_norm)
 
-    # do an svd to compute an initialization for our model.
-    u, s, v = np.linalg.svd(t, full_matrices=False)
+    # do an svd on a sample to estimate singular value spectrum.
+    s = np.linalg.svd(t[:min(*t.shape)], compute_uv=False)
     cdf = (s / s.sum()).cumsum()
-    rank = rank or 0.9
     if 0 < rank < 1:
         rank = cdf.searchsorted(rank)
     rank = int(rank)
     logging.info('using rank %s %.1f%% %s',
-                 rank, 100 * cdf[rank], cdf.searchsorted([0.5, 0.9, 0.95, 0.99]))
+                 rank, 100 * cdf[rank],
+                 cdf.searchsorted([0.5, 0.9, 0.95, 0.99]))
 
-    # optimization parameters
-    gamma = TT.cast(gamma, 'float32')
-    learning_rate = TT.cast(0.0001, 'float32')
-    momentum = TT.cast(0.99, 'float32')
-    max_norm = TT.cast(100, 'float32')
-    one = TT.cast(1, 'float32')
-
-    # symbolic variables.
-    x = theano.shared(t.astype('f'))
-    m = theano.shared(w.astype('f'))
-
-    # model parameters.
-    ss = np.sqrt(s[:rank] - s[rank])
-    u = theano.shared((u[:, :rank] * ss).astype('f'), name='u')
-    vu = theano.shared(np.zeros_like(u.get_value()), name='vu')
-    v = theano.shared((ss[:, None] * v[:rank]).astype('f'), name='v')
-    vv = theano.shared(np.zeros_like(v.get_value()), name='vv')
-
-    # symbolic computations, including sgd with momentum.
-    e = m * (x - TT.dot(u, v))
-    sqerr = (e * e).sum()
-    loss = sqerr + gamma * ((u * u).sum() + (v * v).sum())
-    updates = []
-    for param, grad, vel in zip([u, v], TT.grad(loss, [u, v]), [vu, vv]):
-        g = grad * TT.minimum(one, max_norm / TT.sqrt((grad * grad).sum()))
-        vnew = momentum * vel - learning_rate * g
-        updates.append((vel, vnew))
-        updates.append((param, param + vnew))
-    f = theano.function([], sqerr, updates=updates)
-
-    i = 0
-    err = 1e200
-    best_i = 0
-    best_err = 1e201
-    while tol * data_norm < err:
-        err = f()
-        if err < 0.99 * best_err:
-            best_err = err
-            best_i = i
-        if not i % 10:
-            r = abs(w * (t - np.dot(u.get_value(), v.get_value())))
-            logging.info('%d: error %f; sanity %f; mean %f; pct %s %s',
-                         i, err / data_norm,
-                         (r * r).sum() / data_norm,
-                         r[w].mean(),
-                         np.percentile(r[w], [50, 90, 95, 99]).round(4),
-                         '*' if i - best_i <= 10 else '')
-        i += 1
-        if i - best_i > 100:
-            logging.info('patience elapsed, bailing out')
-            break
+    exp = theanets.Experiment(
+        theanets.Autoencoder,
+        layers=(t.shape[1], rank, t.shape[1]),
+        weighted=True,
+    )
+    exp.train([t, w])
 
     def avg(xs):
         return np.mean(list(xs), axis=0)
 
-    parts = np.split(np.dot(u.get_value(), v.get_value()), window, axis=1)
+    batches = (exp.network.predict(t[o:o+64]) for o in range(0, len(t), 64))
+    parts = np.split(np.concatenate(list(batches), axis=0), window, axis=1)
     w = window - 1
 
     # above, we created <window> duplicates of our data, each offset by 1 frame,
@@ -220,31 +179,21 @@ def lowpass(df, freq=10., order=4):
             df.loc[:, c] = scipy.signal.filtfilt(b, a, df[c])
 
 
-@climate.annotate(
-    root='load data files from this directory tree',
-    output='save smoothed data files to this directory tree',
-    pattern=('process only trials matching this pattern', 'option'),
-    tol=('fill dropouts with this error tolerance', 'option', None, float),
-    gamma=('regularization for decomposition matrices', 'option', None, float),
-    rank=('rank of decomposition matrices', 'option', None, float),
-    window=('process windows of T frames', 'option', None, int),
-    freq=('lowpass filter at N Hz', 'option', None, float),
-)
-def main(root, output, pattern='*', tol=1e-5, gamma=None, rank=None, window=5, freq=None):
-    for _, ts in lmj.cubes.Experiment(root).by_subject(pattern):
+def main(args):
+    for _, ts in lmj.cubes.Experiment(args.root).by_subject(args.pattern):
         ts = list(ts)
         for t in ts:
             t.load()
             t.mask_dropouts()
         try:
-            svt([t.df for t in ts], tol, gamma, rank, window)
+            svt([t.df for t in ts], args.rank, args.window)
         except Exception as e:
             logging.exception('error filling dropouts!')
             continue
         for i, t in enumerate(ts):
-            if freq:
-                lowpass(t.df, freq)
-            t.save(t.root.replace(root, output))
+            if args.freq:
+                lowpass(t.df, args.freq)
+            t.save(t.root.replace(args.root, args.output))
 
 
 if __name__ == '__main__':
