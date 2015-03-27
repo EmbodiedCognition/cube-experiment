@@ -116,8 +116,8 @@ def svt(dfs, tol=1e-4, threshold=None, window=5):
     err = 1e200
     x = y = np.zeros_like(t)
     while tol * data_norm < err:
-        e = t - x
-        err = (w * e * e).sum()
+        e = w * (t - x)
+        err = (e * e).sum()
         y += e
         u, s, v = np.linalg.svd(y, full_matrices=False)
         s = np.clip(s - threshold, 0, np.inf)
