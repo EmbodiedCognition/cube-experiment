@@ -113,14 +113,17 @@ def svt(dfs, tol=1e-4, gamma=1, rank=None, window=5):
     # do an svd to compute an initialization for our model.
     u, s, v = np.linalg.svd(t, full_matrices=False)
     cdf = (s / s.sum()).cumsum()
-    rank = rank or int(num_channels * np.log(window))
+    rank = rank or 0.9
+    if 0 < rank < 1:
+        rank = cdf.searchsorted(rank)
+    rank = int(rank)
     logging.info('using rank %s %.1f%% %s',
                  rank, 100 * cdf[rank], cdf.searchsorted([0.5, 0.9, 0.95, 0.99]))
 
     # optimization parameters
     gamma = TT.cast(gamma, 'float32')
-    learning_rate = TT.cast(0.001, 'float32')
-    momentum = TT.cast(0.9, 'float32')
+    learning_rate = TT.cast(0.0001, 'float32')
+    momentum = TT.cast(0.99, 'float32')
     max_norm = TT.cast(100, 'float32')
     one = TT.cast(1, 'float32')
 
@@ -129,7 +132,7 @@ def svt(dfs, tol=1e-4, gamma=1, rank=None, window=5):
     m = theano.shared(w.astype('f'))
 
     # model parameters.
-    ss = np.sqrt(np.clip(s[:rank] - 10, 0, 1e300))
+    ss = np.sqrt(s[:rank] - s[rank])
     u = theano.shared((u[:, :rank] * ss).astype('f'), name='u')
     vu = theano.shared(np.zeros_like(u.get_value()), name='vu')
     v = theano.shared((ss[:, None] * v[:rank]).astype('f'), name='v')
@@ -149,14 +152,25 @@ def svt(dfs, tol=1e-4, gamma=1, rank=None, window=5):
 
     i = 0
     err = 1e200
+    best_i = 0
+    best_err = 1e201
     while tol * data_norm < err:
         err = f()
+        if err < 0.99 * best_err:
+            best_err = err
+            best_i = i
         if not i % 10:
             r = abs(w * (t - np.dot(u.get_value(), v.get_value())))
-            logging.info('%d: error %f; sanity %f; mean %f; pct %s',
-                         i, err / data_norm, (r * r).sum() / data_norm, r.mean(),
-                         np.percentile(r, [50, 90, 95, 99]).round(4))
+            logging.info('%d: error %f; sanity %f; mean %f; pct %s %s',
+                         i, err / data_norm,
+                         (r * r).sum() / data_norm,
+                         r[w].mean(),
+                         np.percentile(r[w], [50, 90, 95, 99]).round(4),
+                         '*' if i - best_i <= 10 else '')
         i += 1
+        if i - best_i > 100:
+            logging.info('patience elapsed, bailing out')
+            break
 
     def avg(xs):
         return np.mean(list(xs), axis=0)
@@ -212,7 +226,7 @@ def lowpass(df, freq=10., order=4):
     pattern=('process only trials matching this pattern', 'option'),
     tol=('fill dropouts with this error tolerance', 'option', None, float),
     gamma=('regularization for decomposition matrices', 'option', None, float),
-    rank=('rank of decomposition matrices', 'option', None, int),
+    rank=('rank of decomposition matrices', 'option', None, float),
     window=('process windows of T frames', 'option', None, int),
     freq=('lowpass filter at N Hz', 'option', None, float),
 )
@@ -223,7 +237,7 @@ def main(root, output, pattern='*', tol=1e-5, gamma=None, rank=None, window=5, f
             t.load()
             t.mask_dropouts()
         try:
-            svt([t.df for t in ts], tol, threshold, window)
+            svt([t.df for t in ts], tol, gamma, rank, window)
         except Exception as e:
             logging.exception('error filling dropouts!')
             continue
