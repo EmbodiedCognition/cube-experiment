@@ -16,6 +16,7 @@ g.add_argument('--root', metavar='DIR', help='load data files from tree at DIR')
 g.add_argument('--output', metavar='DIR', help='save smoothed data files to tree at DIR')
 g.add_argument('--pattern', default='*', help='process only trials matching this pattern')
 g.add_argument('--rank', default=0.95, type=float, help='rank of decomposition matrices')
+g.add_argument('--tol', default=0.0001, type=float, help='rank of decomposition matrices')
 g.add_argument('--window', type=int, help='process windows of T frames')
 g.add_argument('--freq', type=float, help='lowpass filter at N Hz')
 
@@ -26,7 +27,7 @@ CENTERS = [
     'marker37-r-knee',
 ]
 
-def svt(dfs, rank=0.95, window=5):
+def svt(dfs, tol, rank, window):
     '''Complete missing marker data using singular value thresholding.
 
     This method alters the given `df` in-place.
@@ -37,6 +38,9 @@ def svt(dfs, rank=0.95, window=5):
         Data frames for source data. Each frame will be interpolated, and then
         the frames will be stacked into a single large frame to use during SVT.
         This stacked frame will then be split and returned.
+    tol : float
+        Quit optimizing the autoencoder once the loss drops below this
+        threshold. Defaults to 0.0001.
     rank : float
         Use a subspace of this dimension for reconstructing the data. If given
         as a value in [0, 1], the rank corresponding to the given fraction of
@@ -128,7 +132,9 @@ def svt(dfs, rank=0.95, window=5):
         layers=(t.shape[1], rank, t.shape[1]),
         weighted=True,
     )
-    exp.train([t, w])
+    for tm, _ in exp.itertrain([t, w]):
+        if tm['loss'] < tol:
+            break
 
     def avg(xs):
         return np.mean(list(xs), axis=0)
@@ -186,7 +192,7 @@ def main(args):
             t.load()
             t.mask_dropouts()
         try:
-            svt([t.df for t in ts], args.rank, args.window)
+            svt([t.df for t in ts], args.tol, args.rank, args.window)
         except Exception as e:
             logging.exception('error filling dropouts!')
             continue
