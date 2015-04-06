@@ -69,10 +69,7 @@ def svt(dfs, tol, rank, window):
         if data[c].count() == 0:
             raise ValueError('%s: no visible values!', c)
 
-    # interpolate dropouts linearly.
-    filled = data.interpolate().ffill().bfill()
-
-    filled = filled.values.astype('f')
+    filled = data.fillna(0).values.astype('f')
     weights = (~data.isnull()).values.astype('f')
 
     # here we create windows of consecutive data frames, all stacked together
