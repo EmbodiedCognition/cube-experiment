@@ -93,9 +93,9 @@ def svt(dfs, tol, rank, window):
     # below.
     w = np.concatenate([weights[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
     t = np.concatenate([filled[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
+
     data_norm = (w * t * t).sum()
     logging.info('processing windowed data %s: norm %s', t.shape, data_norm)
-
     assert np.isfinite(data_norm)
 
     # do an svd on a sample to estimate singular value spectrum.
