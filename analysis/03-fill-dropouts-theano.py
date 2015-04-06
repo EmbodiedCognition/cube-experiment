@@ -69,8 +69,8 @@ def svt(dfs, tol, rank, window):
         if data[c].count() == 0:
             raise ValueError('%s: no visible values!', c)
 
-    filled = data.fillna(0).values.astype('f')
     weights = (~data.isnull()).values.astype('f')
+    filled = data.fillna(0, inplace=False).values.astype('f')
 
     # here we create windows of consecutive data frames, all stacked together
     # along axis 1. for example, with 10 2-dimensional frames, we can stack them
