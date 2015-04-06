@@ -20,13 +20,6 @@ g.add_argument('--tol', default=0.0001, type=float, help='rank of decomposition 
 g.add_argument('--window', type=int, help='process windows of T frames')
 g.add_argument('--freq', type=float, help='lowpass filter at N Hz')
 
-CENTERS = [
-    'marker34-l-ilium',
-    'marker35-r-ilium',
-    'marker36-r-hip',
-    'marker37-r-knee',
-]
-
 def svt(dfs, tol, rank, window):
     '''Complete missing marker data using singular value thresholding.
 
@@ -78,15 +71,6 @@ def svt(dfs, tol, rank, window):
 
     # interpolate dropouts linearly.
     filled = data.interpolate().ffill().bfill()
-
-    # shift the entire mocap recording by the location of the CENTERS (basically
-    # the hip markers).
-    center = pd.DataFrame(
-        dict(x=filled[[m + '-x' for m in CENTERS]].mean(axis=1),
-             y=filled[[m + '-y' for m in CENTERS]].mean(axis=1),
-             z=filled[[m + '-z' for m in CENTERS]].mean(axis=1)))
-    for c in cols:
-        filled[c] -= center[c[-1]]
 
     filled = filled.values.astype('f')
     weights = (~data.isnull()).values.astype('f')
@@ -151,11 +135,6 @@ def svt(dfs, tol, rank, window):
                          labels=[x[w:-w] for x in data.index.labels])
     data.loc[rows, cols] = avg(
         parts[j][w - j:num_frames - w - j] for j in range(window))
-
-    # move our interpolated data back out to the world by restoring the
-    # locations of the CENTERS.
-    for c in cols:
-        data.loc[:, c] += center.loc[:, c[-1]]
 
     # unstack the stacked data frame.
     for i, df in enumerate(dfs):
