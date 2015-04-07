@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import scipy.signal
 import theanets
+import theanets.flags
 
 logging = climate.get_logger('fill')
 
@@ -15,36 +16,29 @@ g = climate.add_group('svt options')
 g.add_argument('--root', metavar='DIR', help='load data files from tree at DIR')
 g.add_argument('--output', metavar='DIR', help='save smoothed data files to tree at DIR')
 g.add_argument('--pattern', default='*', help='process only trials matching this pattern')
-g.add_argument('--rank', default=0.95, type=float, help='rank of decomposition matrices')
-g.add_argument('--tol', default=0.0001, type=float, help='rank of decomposition matrices')
+g.add_argument('--rank', type=int, help='reconstruction rank')
+g.add_argument('--tol', default=0.001, type=float, help='reconstruction error tolerance')
 g.add_argument('--window', type=int, help='process windows of T frames')
 g.add_argument('--freq', type=float, help='lowpass filter at N Hz')
 
-def svt(dfs, tol, rank, window):
-    '''Complete missing marker data using singular value thresholding.
+def fill(dfs, rank, tol, window):
+    '''Complete missing marker data using a nonlinear autoencoder model.
 
-    This method alters the given `df` in-place.
+    This method alters the given `dfs` in-place.
 
     Parameters
     ----------
     dfs : list of pd.DataFrame
         Data frames for source data. Each frame will be interpolated, and then
-        the frames will be stacked into a single large frame to use during SVT.
-        This stacked frame will then be split and returned.
+        the frames will be stacked into a single large frame to use during
+        encoding. This stacked frame will then be split and returned.
+    rank : int
+        Encode the data using a nonlinear matrix decomposition of this rank.
     tol : float
         Quit optimizing the autoencoder once the loss drops below this
-        threshold. Defaults to 0.0001.
-    rank : float
-        Use a subspace of this dimension for reconstructing the data. If given
-        as a value in [0, 1], the rank corresponding to the given fraction of
-        the singular value spectrum will be used. Defaults to 0.95.
-    window : int, optional
-        Model windows of this many consecutive frames. Defaults to 5.
-
-    Returns
-    -------
-    dfs : list of pd.DataFrame
-        A list of data frames containing data with dropouts filled in.
+        threshold.
+    window : int
+        Model windows of this many consecutive frames.
     '''
     assert window > 1
 
@@ -70,7 +64,7 @@ def svt(dfs, tol, rank, window):
             raise ValueError('%s: no visible values!', c)
 
     weights = (~data.isnull()).values.astype('f')
-    filled = data.fillna(0, inplace=False).values.astype('f')
+    filled = data.fillna(0).values.astype('f')
 
     # here we create windows of consecutive data frames, all stacked together
     # along axis 1. for example, with 10 2-dimensional frames, we can stack them
@@ -89,49 +83,32 @@ def svt(dfs, tol, rank, window):
     # 9   S T
     #
     # this is more or less like a convolution with a sliding rectangular window.
-    # this stacked data matrix is the one we'll want to fill in the SVT process
-    # below.
-    w = np.concatenate([weights[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
-    t = np.concatenate([filled[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
+    # this stacked data matrix is the one we'll want to fill in the encoding
+    # process below.
+    pos = np.concatenate([filled[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
+    wgt = np.concatenate([weights[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
 
-    data_norm = (w * t * t).sum()
-    logging.info('processing windowed data %s: norm %s', t.shape, data_norm)
+    data_norm = (wgt * pos * pos).sum()
+    logging.info('processing windowed data %s: norm %s', pos.shape, data_norm)
     assert np.isfinite(data_norm)
-
-    # do an svd on a sample to estimate singular value spectrum.
-    s = np.linalg.svd(t[:min(*t.shape)], compute_uv=False)
-    cdf = (s / s.sum()).cumsum()
-    if 0 < rank < 1:
-        rank = cdf.searchsorted(rank)
-    rank = int(rank)
-    logging.info('using rank %s %.1f%% %s',
-                 rank, 100 * cdf[rank],
-                 cdf.searchsorted([0.5, 0.9, 0.95, 0.99]))
 
     exp = theanets.Experiment(
         theanets.Autoencoder,
-        layers=(t.shape[1], rank, t.shape[1]),
-        weighted=True,
-    )
-    for tm, _ in exp.itertrain([t, w]):
+        layers=(pos.shape[1], rank, pos.shape[1]),
+        weighted=True)
+    exp.enable_command_line()
+    for tm, _ in exp.itertrain([pos, wgt]):
         if tm['loss'] < tol:
             break
 
-    def avg(xs):
-        return np.mean(list(xs), axis=0)
-
-    batches = (exp.network.predict(t[o:o+64]) for o in range(0, len(t), 64))
-    parts = np.split(np.concatenate(list(batches), axis=0), window, axis=1)
     w = window - 1
-
-    # above, we created <window> duplicates of our data, each offset by 1 frame,
-    # and stacked (along axis 1) into a big ol matrix. in effect, we have
-    # <window> copies of each frame; here, we unpack these duplicates, remove
-    # their offsets, take the average, and put them back in the linear frame.
     rows = pd.MultiIndex(levels=data.index.levels,
                          labels=[x[w:-w] for x in data.index.labels])
-    data.loc[rows, cols] = avg(
-        parts[j][w - j:num_frames - w - j] for j in range(window))
+    batches = (exp.network.predict(pos[o:o+64]) for o in range(0, len(t), 64))
+    parts = np.split(np.concatenate(list(batches), axis=0), window, axis=1)
+    aligned = [p[w - j:num_frames - w - j] for j, p in enumerate(parts)]
+    filled = pd.DataFrame(np.mean(aligned, axis=0), index=rows, columns=cols)
+    data.update(data.loc[rows, cols].fillna(filled))
 
     # unstack the stacked data frame.
     for i, df in enumerate(dfs):
@@ -168,7 +145,7 @@ def main(args):
             t.load()
             t.mask_dropouts()
         try:
-            svt([t.df for t in ts], args.tol, args.rank, args.window)
+            fill([t.df for t in ts], args.rank, args.tol, args.window)
         except Exception as e:
             logging.exception('error filling dropouts!')
             continue
