@@ -204,3 +204,17 @@ def update(df, prediction, window, only_dropouts=True):
             pd.DataFrame(mean, index=rows, columns=cols)))
     else:
         df.loc[rows, cols] = mean
+
+
+def main(args, fill):
+    for _, ts in lmj.cubes.Experiment(args.root).by_subject(args.pattern):
+        ts = list(ts)
+        for t in ts:
+            t.load()
+            t.mask_dropouts()
+        try:
+            fill(ts)
+        except Exception as e:
+            logging.exception('error filling dropouts!')
+            continue
+        [t.save(t.root.replace(args.root, args.output)) for t in ts]
