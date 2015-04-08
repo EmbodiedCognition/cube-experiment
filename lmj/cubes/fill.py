@@ -28,7 +28,7 @@ CENTERS = [
 ]
 
 
-def assemble(dfs, window):
+def stack(dfs, window):
     '''Assemble multiple dfs into a single df with a multiindex.
 
     Parameters
@@ -36,7 +36,7 @@ def assemble(dfs, window):
     dfs : list of pd.DataFrame
         Data frames for source data. The frames will be stacked into a single
         large frame to use while filling dropouts. This stacked frame can be
-        split up using :meth:`disassemble`.
+        split up using :meth:`unstack`.
     window : int
         Window length for filling dropouts.
 
@@ -96,28 +96,46 @@ def center(df):
     return center
 
 
-def restore(dfs, df, centers):
+def restore(df, centers):
     '''Restore data in the given frame to the given center locations.
 
     Parameters
     ----------
-    dfs : list of pd.DataFrame
-        Original source data frames.
     df : pd.DataFrame
         Data frame containing stacked, centered mocap data.
     centers : pd.DataFrame
         Frame containing center locations for each time step in the recording.
     '''
-    # shift data back out to the world.
     for c in df.columns:
         df.loc[:, c] += centers.loc[:, c[-1]]
-    # unstack the stacked data frame.
+
+
+def unstack(df, dfs):
+    '''Unstack a stacked frame into multiple individual frames.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Data frame containing stacked, centered mocap data.
+    dfs : list of pd.DataFrame
+        Individual target data frames.
+    '''
     for i, d in enumerate(dfs):
         d[df.columns] = df.loc[(i, ), :]
 
 
 def window(df, window, interpolate=False):
-    '''
+    '''Create windowed arrays of marker position data.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Data frame containing stacked marker position data.
+    window : int
+        Number of successive frames to include in each window.
+    interpolate : bool
+        If True, interpolate missing data linearly. If False (default), fill
+        dropouts with 0.
     '''
     visible = (~df.isnull()).values
     if interpolate:
@@ -153,3 +171,36 @@ def window(df, window, interpolate=False):
     logging.info('processing windowed data %s: norm %s', pos.shape, data_norm)
     assert np.isfinite(data_norm)
     return pos, vis, data_norm
+
+
+def update(df, prediction, window, only_dropouts=True):
+    '''Update a stacked data frame using predicted marker positions.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Stacked data frame to update with predicted marker locations.
+    prediction : ndarray
+        Array of predicted marker locations.
+    window : int
+        Window size. Windows will be unstacked and averaged before updating.
+    only_dropouts : bool
+        If True (default), only fill in values for dropouts in the original data
+        frame. If False, replace all values in the original frame with
+        predictions.
+    '''
+    # above, we created <window> duplicates of our data, each offset by 1 frame,
+    # and stacked (along axis 1) into a big ol matrix. in effect, we have
+    # <window> copies of each frame; here, we unpack these duplicates, remove
+    # their offsets, take the average, and put them back in the linear frame.
+    w = window - 1
+    cols = df.columns
+    rows = pd.MultiIndex(
+        levels=df.index.levels, labels=[x[w:-w] for x in df.index.labels])
+    parts = np.split(prediction, window, axis=1)
+    mean = np.mean([p[w - j:len(p) - j] for j, p in enumerate(parts)], axis=0)
+    if only_dropouts:
+        df.update(df.loc[rows, cols].fillna(
+            pd.DataFrame(mean, index=rows, columns=cols)))
+    else:
+        df.loc[rows, cols] = mean
