@@ -94,9 +94,11 @@ def fill(dfs, rank, tol, window):
 
     exp = theanets.Experiment(
         theanets.Autoencoder,
-        layers=(pos.shape[1], rank, pos.shape[1]),
+        layers=(pos.shape[1], dict(size=rank, sparsity=0.99), pos.shape[1]),
         weighted=True)
     exp.enable_command_line()
+    exp.train([pos, wgt], learning_rate=0.1, patience=1)
+    exp.train([pos, wgt], learning_rate=0.01, patience=1)
     for tm, _ in exp.itertrain([pos, wgt]):
         if tm['loss'] < tol:
             break
@@ -104,7 +106,7 @@ def fill(dfs, rank, tol, window):
     w = window - 1
     rows = pd.MultiIndex(levels=data.index.levels,
                          labels=[x[w:-w] for x in data.index.labels])
-    batches = (exp.network.predict(pos[o:o+64]) for o in range(0, len(t), 64))
+    batches = (exp.network.predict(pos[o:o+64]) for o in range(0, len(pos), 64))
     parts = np.split(np.concatenate(list(batches), axis=0), window, axis=1)
     aligned = [p[w - j:num_frames - w - j] for j, p in enumerate(parts)]
     filled = pd.DataFrame(np.mean(aligned, axis=0), index=rows, columns=cols)
