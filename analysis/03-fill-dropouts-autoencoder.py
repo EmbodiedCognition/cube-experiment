@@ -12,15 +12,6 @@ import theanets.flags
 
 logging = climate.get_logger('fill')
 
-g = climate.add_group('svt options')
-g.add_argument('--root', metavar='DIR', help='load data files from tree at DIR')
-g.add_argument('--output', metavar='DIR', help='save smoothed data files to tree at DIR')
-g.add_argument('--pattern', default='*', help='process only trials matching this pattern')
-g.add_argument('--rank', type=int, help='reconstruction rank')
-g.add_argument('--tol', default=0.001, type=float, help='reconstruction error tolerance')
-g.add_argument('--window', type=int, help='process windows of T frames')
-g.add_argument('--freq', type=float, help='lowpass filter at N Hz')
-
 def fill(dfs, rank, tol, window):
     '''Complete missing marker data using a nonlinear autoencoder model.
 
