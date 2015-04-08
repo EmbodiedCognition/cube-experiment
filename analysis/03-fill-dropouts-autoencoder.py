@@ -108,29 +108,6 @@ def fill(dfs, rank, tol, window):
         df[cols] = data.loc[(i, ), cols]
 
 
-def lowpass(df, freq=10., order=4):
-    '''Filter marker data using a butterworth low-pass filter.
-
-    This method alters the data in `df` in-place.
-
-    Parameters
-    ----------
-    freq : float, optional
-        Use a butterworth filter with this cutoff frequency. Defaults to
-        10Hz.
-    order : int, optional
-        Order of the butterworth filter. Defaults to 4.
-    '''
-    nyquist = 1 / (2 * pd.Series(df.index).diff().mean())
-    assert 0 < freq < nyquist
-    passes = 2  # filtfilt makes two passes over the data.
-    correct = (2 ** (1 / passes) - 1) ** 0.25
-    b, a = scipy.signal.butter(order / passes, (freq / correct) / nyquist)
-    for c in df.columns:
-        if c.startswith('marker') and c[-1] in 'xyz':
-            df.loc[:, c] = scipy.signal.filtfilt(b, a, df[c])
-
-
 def main(args):
     for _, ts in lmj.cubes.Experiment(args.root).by_subject(args.pattern):
         ts = list(ts)
@@ -142,10 +119,7 @@ def main(args):
         except Exception as e:
             logging.exception('error filling dropouts!')
             continue
-        for i, t in enumerate(ts):
-            if args.freq:
-                lowpass(t.df, args.freq)
-            t.save(t.root.replace(args.root, args.output))
+        [t.save(t.root.replace(args.root, args.output)) for t in ts]
 
 
 if __name__ == '__main__':

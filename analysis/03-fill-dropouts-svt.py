@@ -152,53 +152,18 @@ def svt(dfs, tol=1e-4, threshold=None, window=5):
         df[cols] = data.loc[(i, ), cols]
 
 
-def lowpass(df, freq=10., order=4):
-    '''Filter marker data using a butterworth low-pass filter.
-
-    This method alters the data in `df` in-place.
-
-    Parameters
-    ----------
-    freq : float, optional
-        Use a butterworth filter with this cutoff frequency. Defaults to
-        10Hz.
-    order : int, optional
-        Order of the butterworth filter. Defaults to 4.
-    '''
-    nyquist = 1 / (2 * pd.Series(df.index).diff().mean())
-    assert 0 < freq < nyquist
-    passes = 2  # filtfilt makes two passes over the data.
-    correct = (2 ** (1 / passes) - 1) ** 0.25
-    b, a = scipy.signal.butter(order / passes, (freq / correct) / nyquist)
-    for c in df.columns:
-        if c.startswith('marker') and c[-1] in 'xyz':
-            df.loc[:, c] = scipy.signal.filtfilt(b, a, df[c])
-
-
-@climate.annotate(
-    root='load data files from this directory tree',
-    output='save smoothed data files to this directory tree',
-    pattern=('process only trials matching this pattern', 'option'),
-    tol=('fill dropouts with this error tolerance', 'option', None, float),
-    threshold=('SVT threshold for singular values', 'option', None, float),
-    window=('process windows of T frames', 'option', None, int),
-    freq=('lowpass filter at N Hz', 'option', None, float),
-)
-def main(root, output, pattern='*', tol=1e-5, threshold=None, window=5, freq=None):
-    for _, ts in lmj.cubes.Experiment(root).by_subject(pattern):
+def main(args):
+    for _, ts in lmj.cubes.Experiment(args.root).by_subject(args.pattern):
         ts = list(ts)
         for t in ts:
             t.load()
             t.mask_dropouts()
         try:
-            svt([t.df for t in ts], tol, threshold, window)
+            svt([t.df for t in ts], args.tol, args.threshold, args.window)
         except Exception as e:
             logging.exception('error filling dropouts!')
             continue
-        for i, t in enumerate(ts):
-            if freq:
-                lowpass(t.df, freq)
-            t.save(t.root.replace(root, output))
+        [t.save(t.root.replace(args.root, args.output)) for t in ts]
 
 
 if __name__ == '__main__':
