@@ -2,6 +2,8 @@ import climate
 import numpy as np
 import pandas as pd
 
+from .database import Experiment
+
 logging = climate.get_logger(__name__)
 
 g = climate.add_group('dropout-filling options')
@@ -54,7 +56,7 @@ def stack(dfs, window):
 
     df = pd.concat(chunks, axis=0, keys=keys)
 
-    num_frames, num_channels = data.shape
+    num_frames, num_channels = df.shape
     num_entries = num_frames * num_channels
     filled_ratio = df.count().sum() / num_entries
     logging.info('missing %d of (%d, %d) = %d values (%.1f%% filled)',
@@ -88,9 +90,9 @@ def center(df):
         original data frame.
     '''
     center = pd.DataFrame(
-        dict(x=filled[[m + '-x' for m in CENTERS]].mean(axis=1),
-             y=filled[[m + '-y' for m in CENTERS]].mean(axis=1),
-             z=filled[[m + '-z' for m in CENTERS]].mean(axis=1)))
+        dict(x=df[[m + '-x' for m in CENTERS]].mean(axis=1),
+             y=df[[m + '-y' for m in CENTERS]].mean(axis=1),
+             z=df[[m + '-z' for m in CENTERS]].mean(axis=1)))
     for c in df.columns:
         df[c] -= center[c[-1]]
     return center
@@ -165,9 +167,9 @@ def window(df, window, fillna=0):
     # this stacked data matrix is the one we'll want to fill in the SVT process
     # below.
     pos = np.concatenate(
-        [position[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
+        [position[i:len(df)-(window-1-i)] for i in range(window)], axis=1)
     vis = np.concatenate(
-        [visible[i:num_frames-(window-1-i)] for i in range(window)], axis=1)
+        [visible[i:len(df)-(window-1-i)] for i in range(window)], axis=1)
     data_norm = (vis * pos * pos).sum()
     logging.info('processing windowed data %s: norm %s', pos.shape, data_norm)
     assert np.isfinite(data_norm)
@@ -208,7 +210,7 @@ def update(df, prediction, window, only_dropouts=True):
 
 
 def main(fill, args, *fill_args):
-    for _, ts in lmj.cubes.Experiment(args.root).by_subject(args.pattern):
+    for _, ts in Experiment(args.root).by_subject(args.pattern):
         ts = list(ts)
         for t in ts:
             t.load()
