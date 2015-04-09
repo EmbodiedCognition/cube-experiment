@@ -61,9 +61,7 @@ def svt(dfs, tol, threshold, window):
 
 
 def main(args):
-    lmj.cubes.fill.main(
-        args, lambda ts: svt(
-            [t.df for t in ts], args.tol, args.threshold, args.window))
+    lmj.cubes.fill.main(svt, args, args.tol, args.threshold, args.window)
 
 
 if __name__ == '__main__':

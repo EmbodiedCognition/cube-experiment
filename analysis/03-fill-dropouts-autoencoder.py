@@ -50,9 +50,7 @@ def fill(dfs, rank, tol, window):
 
 
 def main(args):
-    lmj.cubes.fill.main(
-        args, lambda ts: fill(
-            [t.df for t in ts], args.rank, args.tol, args.window))
+    lmj.cubes.fill.main(fill, args, args.rank, args.tol, args.window)
 
 
 if __name__ == '__main__':

@@ -20,8 +20,8 @@ def fill(dfs, rank, window):
     ----------
     dfs : list of pd.DataFrame
         Frames of source data. The frames will be stacked into a single large
-        frame to use during SVT. This stacked frame will then be split and
-        returned.
+        frame and interpolated linearly, either in the data space or (if rank is
+        not None) in principal component space.
     rank : float
         Number of principal components (if >1) or fraction of variance (if in
         (0, 1)) to retain in the encoded data.
@@ -47,7 +47,7 @@ def fill(dfs, rank, window):
 
 
 def main(args):
-    lmj.cubes.fill.main(args, lambda ts: fill([t.df for t in ts], args.window))
+    lmj.cubes.fill.main(fill, args, args.rank, args.window)
 
 
 if __name__ == '__main__':
