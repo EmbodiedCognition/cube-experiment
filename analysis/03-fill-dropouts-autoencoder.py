@@ -36,7 +36,7 @@ def fill(dfs, rank, tol, window):
 
     exp = theanets.Experiment(
         theanets.Autoencoder,
-        layers=(pos.shape[1], rank, pos.shape[1]),
+        layers=(pos.shape[1], int(rank), pos.shape[1]),
         weighted=True)
     exp.train([pos, vis], learning_rate=0.1, patience=1)
     for tm, _ in exp.itertrain([pos, vis]):

@@ -11,7 +11,7 @@ g.add_argument('--output', metavar='DIR',
                help='save smoothed data files to tree at DIR')
 g.add_argument('--pattern', default='*', metavar='SHPAT',
                help='process only trials matching this pattern')
-g.add_argument('--rank', type=int, metavar='K',
+g.add_argument('--rank', type=float, metavar='K',
                help='reconstruction rank')
 g.add_argument('--threshold', type=float, metavar='S',
                help='truncate singular values at threshold S')
