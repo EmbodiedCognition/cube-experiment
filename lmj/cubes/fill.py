@@ -124,7 +124,7 @@ def unstack(df, dfs):
         d[df.columns] = df.loc[(i, ), :]
 
 
-def window(df, window, interpolate=False):
+def window(df, window, fillna=0):
     '''Create windowed arrays of marker position data.
 
     Parameters
@@ -133,17 +133,18 @@ def window(df, window, interpolate=False):
         Data frame containing stacked marker position data.
     window : int
         Number of successive frames to include in each window.
-    interpolate : bool
-        If True, interpolate missing data linearly. If False (default), fill
-        dropouts with 0.
+    fillna : float, int, str, or None
+        If an integer or float, fill dropouts with this value. If a string,
+        interpolate missing data linearly. If None, do not fill dropouts.
     '''
     visible = (~df.isnull()).values
-    if interpolate:
+    position = df.values
+    if isinstance(fillna, (float, int)):
+        # just fill dropouts with a constant value.
+        position = df.fillna(fillna).values
+    if fillna is not None:
         # interpolate dropouts linearly.
         position = df.interpolate().ffill().bfill().values
-    else:
-        # just fill dropouts with zeros.
-        position = df.fillna(0).values
     # here we create windows of consecutive data frames, all stacked together
     # along axis 1. for example, with 10 2-dimensional frames, we can stack them
     # into windows of length 4 as follows:
