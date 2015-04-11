@@ -123,7 +123,7 @@ def unstack(df, dfs):
         Individual target data frames.
     '''
     for i, d in enumerate(dfs):
-        d[df.columns] = df.loc[(i, ), :]
+        d.loc[:, df.columns] = df.loc[(i, ), :]
 
 
 def window(df, window, fillna=0):
