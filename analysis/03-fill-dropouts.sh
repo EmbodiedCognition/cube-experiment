@@ -5,7 +5,7 @@ shift
 args=$@
 
 function job {
-    python analysis/03-fill-dropouts-$method.py $args --pattern "$1/*block0[$2]/"
+    python analysis/03-fill-dropouts-${method}.py $args --pattern "$1/*block0[$2]/"
 }
 
 job f9 0123
