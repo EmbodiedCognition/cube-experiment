@@ -17,14 +17,14 @@ def compute(trial, output, frames):
     body.df = trial.df.copy()
     stats = body.make_body_relative()
     #body.add_velocities()
-    body_delta = body.diff(frames)
+    body_delta = body.df.diff(frames)
 
     # encode goal-relative data.
     goal = lmj.cubes.Trial(trial.parent, trial.basename)
     goal.df = trial.df.copy()
     goal.make_target_relative()
     #goal.add_velocities()
-    goal_delta = goal.diff(frames)
+    goal_delta = goal.df.diff(frames)
 
     out = lmj.cubes.Trial(trial.parent, trial.basename)
     out.df = trial.df.copy()
