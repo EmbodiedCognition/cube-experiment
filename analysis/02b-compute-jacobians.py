@@ -38,7 +38,15 @@ def compute(trial, output, variance=0.995):
 
     pca = lmj.pca.PCA(filename=p('body'))
     values = body.df[body.marker_channel_columns].values
-    for i, v in enumerate(pca.encode(values, retain=variance).T):
+    for variance in (0.5, 0.8, 0.9, 0.95, 0.98, 0.99):
+        encoded = pca.encode(values, retain=variance)
+        recons = pd.DataFrame(pca.decode(encoded, retain=variance),
+                              columns=body.marker_channel_columns, index=body.df.index)
+        err = body.df[body.marker_position_columns] - recons[body.marker_position_columns] * stats.sigma + stats.mu
+        logging.info('variance %f: reconstruction error: %f', variance, (err * err).mean().mean())
+    return
+
+    for i, v in enumerate(encoded.T):
         out['body-pc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
         body_pcs += 1
 
@@ -83,7 +91,8 @@ def compute(trial, output, variance=0.995):
 def main(root, output, pattern='*', variance=0.99):
     func = joblib.delayed(compute)
     trials = lmj.cubes.Experiment(root).trials_matching(pattern)
-    joblib.Parallel(-1)(func(t, output, variance) for t in trials)
+    #joblib.Parallel(-1)(func(t, output, variance) for t in trials)
+    compute(list(trials)[0], output, variance)
 
 
 if __name__ == '__main__':
