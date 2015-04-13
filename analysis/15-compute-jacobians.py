@@ -42,7 +42,7 @@ def compute(trial, output, frames):
 @climate.annotate(
     root='load data files from this directory tree',
     output='save encoded data to this directory tree',
-    pattern='process trials matching this pattern',
+    pattern=('process trials matching this pattern', 'option'),
     frames=('compute jacobian over this many frames', 'option', None, int),
 )
 def main(root, output, pattern='*', frames=20):
