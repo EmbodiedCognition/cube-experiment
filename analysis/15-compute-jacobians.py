@@ -29,9 +29,11 @@ def compute(trial, output, frames):
     out = lmj.cubes.Trial(trial.parent, trial.basename)
     out.df = trial.df.copy()
     for bc in body.marker_position_columns:
+        bn = 'b{}{}'.format(bc[6:8], bc[-1])
         for gc in goal.marker_position_columns:
-            out.df['jac-fwd-{}/{}'] = goal_delta[gc] / body_delta[bc]
-            out.df['jac-inv-{}/{}'] = body_delta[bc] / goal_delta[gc]
+            gn = 'g{}{}'.format(gc[6:8], gc[-1])
+            out.df['jac-fwd-{}/{}'.format(gn, bn)] = goal_delta[gc] / body_delta[bc]
+            out.df['jac-inv-{}/{}'.format(bn, gn)] = body_delta[bc] / goal_delta[gc]
 
     out.save(trial.root.replace(trial.experiment.root, output))
 
