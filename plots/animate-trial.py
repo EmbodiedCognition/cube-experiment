@@ -16,8 +16,10 @@ COLORS = (WHITE, RED, YELLOW, GREEN, BLUE, ORANGE)
 
 
 class Window(pagoda.viewer.Window):
-    def __init__(self, trial, paused=False):
+    def __init__(self, trial, paused=False, dropout=False):
         super().__init__(paused=paused)
+
+        self.dropout = dropout
 
         values = trial.df[[c for c in trial.columns if c.startswith('marker')]].values
         values = values.reshape((len(trial.df), -1, 4))
@@ -26,7 +28,7 @@ class Window(pagoda.viewer.Window):
 
         self.targets = trial.target_trajectory.drop_duplicates().values
 
-        self._maxlen = 4
+        self._maxlen = 1
         self._trails = [[] for _ in range(len(trial.marker_columns))]
         self._reset_trails()
 
@@ -71,14 +73,18 @@ class Window(pagoda.viewer.Window):
 
     def step(self, dt):
         for trail, (x, y, z, c) in zip(self._trails, self._next_frame()):
-            trail.append((x, z, y) if 10 > c > 0 else None)
+            trail.append(None if self.dropout and not 0 < c < 10 else (x, z, y))
 
 
-def main(root, pattern):
+@climate.annotate(
+    root='root of experiment data',
+    pattern='load trials matching this pattern',
+    dropout=('if provided, remove dropout markers', 'option'),
+)
+def main(root, pattern, dropout=None):
     for t in lmj.cubes.Experiment(root).trials_matching(pattern):
         t.load()
-        #t.add_velocities(smooth=0)
-        Window(t).run()
+        Window(t, dropout=bool(dropout)).run()
 
 
 if __name__ == '__main__':
