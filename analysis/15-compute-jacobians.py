@@ -3,8 +3,6 @@
 import climate
 import joblib
 import lmj.cubes
-import numpy as np
-import os
 
 logging = climate.get_logger('15-compute-jac')
 
