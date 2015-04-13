@@ -42,12 +42,13 @@ def compute(trial, output, frames):
     root='load data files from this directory tree',
     output='save encoded data to this directory tree',
     pattern='process trials matching this pattern',
+    frames=('compute jacobian over this many frames', 'option', None, int),
 )
-def main(root, output, pattern='*'):
+def main(root, output, pattern='*', frames=20):
     work = joblib.delayed(compute)
     trials = lmj.cubes.Experiment(root).trials_matching(pattern)
-    #joblib.Parallel(-1)(work(t, output) for t in trials)
-    compute(list(trials)[0], output)
+    #joblib.Parallel(-1)(work(t, output, frames) for t in trials)
+    compute(list(trials)[0], output, frames)
 
 
 if __name__ == '__main__':
