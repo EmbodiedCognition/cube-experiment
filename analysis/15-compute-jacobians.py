@@ -48,8 +48,7 @@ def compute(trial, output, frames):
 def main(root, output, pattern='*', frames=20):
     work = joblib.delayed(compute)
     trials = lmj.cubes.Experiment(root).trials_matching(pattern)
-    #joblib.Parallel(-1)(work(t, output, frames) for t in trials)
-    compute(list(trials)[0], output, frames)
+    joblib.Parallel(2)(work(t, output, frames) for t in trials)
 
 
 if __name__ == '__main__':
