@@ -16,7 +16,7 @@ def compute(trial, output, frames):
     stats = body.make_body_relative()
     #body.add_velocities()
     body_delta = body.df.diff(frames)
-    logging.info('computed body delta')
+    logging.info('computed body delta %d', frames)
 
     # encode goal-relative data.
     goal = lmj.cubes.Trial(trial.parent, trial.basename)
@@ -24,7 +24,7 @@ def compute(trial, output, frames):
     goal.make_target_relative()
     #goal.add_velocities()
     goal_delta = goal.df.diff(frames)
-    logging.info('computed goal delta')
+    logging.info('computed goal delta %d', frames)
 
     out = lmj.cubes.Trial(trial.parent, trial.basename)
     out.df = trial.df.copy()
@@ -34,8 +34,8 @@ def compute(trial, output, frames):
             gn = 'g{}{}'.format(gc[6:8], gc[-1])
             out.df['jac-fwd-{}/{}'.format(gn, bn)] = goal_delta[gc] / body_delta[bc]
             out.df['jac-inv-{}/{}'.format(bn, gn)] = body_delta[bc] / goal_delta[gc]
-        logging.info('computed body columns %s', bn)
 
+    logging.info('computed jacobian %d', frames)
     out.save(trial.root.replace(trial.experiment.root, output))
 
 
