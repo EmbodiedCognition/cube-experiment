@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 
 import climate
-import lmj.cubes
 import IPython
+import lmj.cubes
+import lmj.plot
+import numpy as np
+import pandas as pd
 
 
 def main(root, pattern):
