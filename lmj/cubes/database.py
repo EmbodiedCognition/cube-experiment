@@ -633,6 +633,18 @@ class Trial(Movement, TimedMixin, TreeMixin):
                      self.shape,
                      path)
 
+    def pickle(self, path):
+        dirname = os.path.dirname(path)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        self.df.to_pickle(path)
+        logging.info('%s %s %s: saved %s to %s',
+                     self.subject.key,
+                     self.block.key,
+                     self.key,
+                     self.shape,
+                     path)
+
     def _debug(self, label):
         logging.debug(label)
         for c in self.columns:
