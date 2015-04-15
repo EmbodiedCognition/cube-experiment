@@ -429,13 +429,24 @@ class Movement(DF):
             self.df['{}-v{}'.format(c[:-2], c[-1])] = pd.rolling_mean(
                 self.df[c].diff(2).shift(-1) / dt, smooth, center=True)
 
-    def add_jacobian(self, frames):
+    def add_jacobian(self, frames, forward=True, inverse=False):
         '''Add columns to the data for representing the jacobian.
 
         Parameters
         ----------
         frames : int
             Number of frames over which to compute jacobian values.
+        forward : bool, optional
+            Add forward jacobian. Defaults to True.
+        inverse : bool, optional
+            Add inverse jacobian. Defaults to False.
+
+        Returns
+        -------
+        stats : pandas.DataFrame
+            A data frame containing z-score summary statistics for body-relative
+            data. The index for this frame contains 'mean' and 'std' keys, and
+            the columns correspond to marker channel columns.
         '''
         body = Trial(self.parent, self.basename)
         body.df = self.df.copy()
@@ -536,7 +547,7 @@ class Movement(DF):
         '''Convert marker positions to z-scores.
 
         Returns
-        =======
+        -------
         stats : pandas.DataFrame
             A data frame containing summary statistics. The index for this frame
             contains 'mean' and 'std' keys, and the columns correspond to marker
@@ -553,7 +564,7 @@ class Movement(DF):
         '''Translate and rotate marker data so that it's body-relative.
 
         Returns
-        =======
+        -------
         stats : pandas.DataFrame
             A data frame containing z-score summary statistics. The index for
             this frame contains 'mean' and 'std' keys, and the columns
