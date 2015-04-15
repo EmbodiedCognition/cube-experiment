@@ -429,6 +429,48 @@ class Movement(DF):
             self.df['{}-v{}'.format(c[:-2], c[-1])] = pd.rolling_mean(
                 self.df[c].diff(2).shift(-1) / dt, smooth, center=True)
 
+    def add_jacobian(self, frames):
+        '''Add columns to the data for representing the jacobian.
+
+        Parameters
+        ----------
+        frames : int
+            Number of frames over which to compute jacobian values.
+        '''
+        body = Trial(self.parent, self.basename)
+        body.df = self.df.copy()
+        stats = body.make_body_relative()
+        body_delta = body.df.diff(frames)
+        logging.info('computed body delta %d', frames)
+
+        goal = Trial(self.parent, self.basename)
+        goal.df = self.df.copy()
+        goal.make_target_relative()
+        goal_delta = goal.df.diff(frames)
+        logging.info('computed goal delta %d', frames)
+
+        for bc in body.marker_position_columns + body.marker_velocity_columns:
+            bn = 'b{}{}'.format(bc[6:8], bc[-1:])
+            for gc in goal.marker_position_columns + goal.marker_velocity_columns:
+                gn = 'g{}{}'.format(gc[6:8], gc[-1:])
+                self.df['jac-fwd-{}/{}'.format(gn, bn)] = \
+                    goal_delta[gc] / body_delta[bc]
+        logging.info('computed forward jacobian %d', frames)
+
+        for gc in goal.marker_position_columns + goal.marker_velocity_columns:
+            gn = 'g{}{}'.format(gc[6:8], gc[-2:])
+            for bc in body.marker_position_columns + body.marker_velocity_columns:
+                bn = 'b{}{}'.format(bc[6:8], bc[-2:])
+                self.df['jac-inv-{}/{}'.format(bn, gn)] = \
+                    body_delta[bc] / goal_delta[gc]
+        logging.info('computed inverse jacobian %d', frames)
+
+        jac = [c for c in self.df.columns if c.startswith('jac')]
+        for i in self.df.target.diff(1).nonzero()[0]:
+            self.df.ix[i:i+frame, inv] = float('nan')
+
+        return stats
+
     def mask_fiddly_target_frames(self, enter_threshold=0.25, exit_threshold=0.5):
         '''This code attempts to normalize the moment of target contact.
 
