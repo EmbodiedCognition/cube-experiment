@@ -449,21 +449,27 @@ class Movement(DF):
         goal_delta = goal.df.diff(frames)
         logging.info('computed goal delta %d', frames)
 
-        for bc in body.marker_position_columns + body.marker_velocity_columns:
-            bn = 'b{}{}'.format(bc[6:8], bc[-1:])
-            for gc in goal.marker_position_columns + goal.marker_velocity_columns:
-                gn = 'g{}{}'.format(gc[6:8], gc[-1:])
-                self.df['jac-fwd-{}/{}'.format(gn, bn)] = \
-                    goal_delta[gc] / body_delta[bc]
-        logging.info('computed forward jacobian %d', frames)
+        if forward:
+            for bc in body.marker_channel_columns:
+                i = -2 if bc[-2] in 'av' else -1
+                bn = 'b{}{}'.format(bc[6:8], bc[i:])
+                for gc in goal.marker_channel_columns:
+                    i = -2 if gc[-2] in 'av' else -1
+                    gn = 'g{}{}'.format(gc[6:8], gc[i:])
+                    self.df['jac-fwd-{}/{}'.format(gn, bn)] = \
+                        goal_delta[gc] / body_delta[bc]
+            logging.info('computed forward jacobian %d', frames)
 
-        for gc in goal.marker_position_columns + goal.marker_velocity_columns:
-            gn = 'g{}{}'.format(gc[6:8], gc[-2:])
-            for bc in body.marker_position_columns + body.marker_velocity_columns:
-                bn = 'b{}{}'.format(bc[6:8], bc[-2:])
-                self.df['jac-inv-{}/{}'.format(bn, gn)] = \
-                    body_delta[bc] / goal_delta[gc]
-        logging.info('computed inverse jacobian %d', frames)
+        if inverse:
+            for gc in goal.marker_channel_columns:
+                i = -2 if gc[-2] in 'av' else -1
+                gn = 'g{}{}'.format(gc[6:8], gc[i:])
+                for bc in body.marker_channel_columns:
+                    i = -2 if bc[-2] in 'av' else -1
+                    bn = 'b{}{}'.format(bc[6:8], bc[i:])
+                    self.df['jac-inv-{}/{}'.format(bn, gn)] = \
+                        body_delta[bc] / goal_delta[gc]
+            logging.info('computed inverse jacobian %d', frames)
 
         jac = [c for c in self.df.columns if c.startswith('jac')]
         for i in self.df.target.diff(1).nonzero()[0]:
