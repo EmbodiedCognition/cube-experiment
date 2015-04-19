@@ -540,8 +540,8 @@ class Movement(DF):
             a = b
 
         self.df[mask] = float('nan')
-        logging.info('masked %d fiddly of %d frames -- %.1f %% of trial',
-                     sum(mask), len(mask), 100 * sum(mask) / len(mask))
+        self.log('masked %d fiddly of %d frames -- %.1f %% of trial',
+                 sum(mask), len(mask), 100 * sum(mask) / len(mask))
 
     def convert_markers_to_z_scores(self):
         '''Convert marker positions to z-scores.
@@ -661,11 +661,7 @@ class Trial(Movement, TimedMixin, TreeMixin):
 
     def load(self):
         self.df = pd.read_csv(self.root, compression='gzip').set_index('time')
-        logging.info('%s %s %s: loaded trial %s',
-                     self.subject.key,
-                     self.block.key,
-                     self.key,
-                     self.shape)
+        self.log('loaded trial %s', self.shape)
         self._debug('loaded data counts')
         return self
 
@@ -674,7 +670,8 @@ class Trial(Movement, TimedMixin, TreeMixin):
         for t in self.df.target.unique():
             df = self.movement_to(t).df
             lengths[(df.source.unique()[-1], t)] = len(df)
-        logging.info('trial lengths %s', ','.join(str(lengths[(i, j)]) for i in range(12) for j in range(12)))
+        self.log('trial lengths %s', ','.join(
+            str(lengths[(i, j)]) for i in range(12) for j in range(12)))
         return lengths
 
     def save(self, path):
@@ -685,27 +682,23 @@ class Trial(Movement, TimedMixin, TreeMixin):
         self.df.to_csv(s, index_label='time')
         with gzip.open(path, 'w') as handle:
             handle.write(s.getvalue().encode('utf-8'))
-        logging.info('%s %s %s: saved %s to %s',
-                     self.subject.key,
-                     self.block.key,
-                     self.key,
-                     self.shape,
-                     path)
+        self.log('saved %s to %s', self.shape, path)
 
     def pickle(self, path):
         dirname = os.path.dirname(path)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
         self.df.to_pickle(path)
-        logging.info('%s %s %s: saved %s to %s',
-                     self.subject.key,
-                     self.block.key,
-                     self.key,
-                     self.shape,
-                     path)
+        self.log('saved %s to %s', self.shape, path)
+
+    def log(self, msg, *args, level='info'):
+        getattr(logging, level.lower())(
+            '%s %s %s: ' + msg,
+            self.subject.key, self.block.key, self.key, *args)
 
     def _debug(self, label):
-        logging.debug(label)
+        self.log('%s', label, level='debug')
         for c in self.columns:
-            logging.debug('%30s: %6d of %6d values',
-                          c, self.df[c].count(), len(self.df[c]))
+            self.log('%30s: %6d of %6d values',
+                     c, self.df[c].count(), len(self.df[c]),
+                     level='debug')
