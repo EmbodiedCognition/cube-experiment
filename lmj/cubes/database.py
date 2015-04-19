@@ -407,13 +407,13 @@ class Movement(DF):
         smooth : int, optional
             Number of frames over which to smooth velocity data. Defaults to 11.
         '''
-        times = pd.Series(self.df.index, index=self.df.index)
-        v = self.df[self.marker_channel_columns].diff(2).shift(-1).div(
-            times.shift(-1) - times.shift(1), axis='index').bfill().ffill()
-        if smooth:
-            v = pd.rolling_mean(v, smooth, center=True, axis=0).bfill().ffill()
-        for c in v.columns:
-            self.df['{}-v{}'.format(c[:-2], c[-1])] = v[c]
+        ds = pd.Series(self.df.index, index=self.df.index)
+        dt = ds.shift(-1) - ds.shift(1)
+        for c in self.marker_channel_columns:
+            v = self.df[c].diff(2).shift(-1) / dt
+            if smooth:
+                v = pd.rolling_mean(v, smooth, center=True)
+            self.df['{}-v{}'.format(c[:-2], c[-1])] = v
 
     def add_accelerations(self, smooth=11):
         '''Add columns to the data that reflect the instantaneous acceleration.
