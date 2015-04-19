@@ -429,7 +429,7 @@ class Movement(DF):
             a = self.df[c].diff(2).shift(-1) / dt
             if smooth:
                 a = pd.rolling_mean(a, smooth, center=True)
-            self.df['{}-a{}'.format(c[:-2], c[-1])] = a
+            self.df['{}-a{}'.format(c[:-3], c[-1])] = a
 
     def add_jacobian(self, frames, forward=True, inverse=False):
         '''Add columns to the data for representing the jacobian.
