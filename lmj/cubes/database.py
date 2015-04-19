@@ -409,7 +409,7 @@ class Movement(DF):
         '''
         ds = pd.Series(self.df.index, index=self.df.index)
         dt = ds.shift(-1) - ds.shift(1)
-        for c in self.marker_channel_columns:
+        for c in self.marker_position_columns:
             v = self.df[c].diff(2).shift(-1) / dt
             if smooth:
                 v = pd.rolling_mean(v, smooth, center=True)
