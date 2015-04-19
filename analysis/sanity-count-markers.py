@@ -16,9 +16,7 @@ def count(trial):
     total = len(trial.df)
     markers = {m: trial.df[m + '-c'].count() / total for m in trial.marker_columns}
     full = len(trial.df[[m + '-c' for m in markers]].dropna(axis=0))
-    logging.info('%s %s %s: %d rows, %d full (%.1f%%)',
-                 trial.subject.key, trial.block.key, trial.key,
-                 total, full, 100 * full / total)
+    trial.log('%d rows, %d full (%.1f%%)', total, full, 100 * full / total)
     return markers
 
 
