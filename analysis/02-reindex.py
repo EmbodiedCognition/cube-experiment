@@ -82,11 +82,10 @@ def reindex(t, root, output, frame_rate, interpolate, max_speed, max_acc):
         spd = np.sqrt((v * v).sum(axis=1))
         acc = np.sqrt((a * a).sum(axis=1))
         mask = (c < 0) | (spd > max_speed) | (acc > max_acc)
-        logging.info(
-            '%s %s %s %s: %d frames, masking %d = %d dropouts + %d spd (%s) + %d acc (%s)',
-            t.subject.key, t.block.key, t.key, marker, len(t.df), mask.sum(), (c < 0).sum(),
-            (spd > max_speed).sum(), ' '.join(below(spd, r) for r in SPEEDS),
-            (acc > max_acc).sum(), ' '.join(below(acc, r) for r in ACCELS))
+        t.log('%s %d frames, masking %d = %d dropouts + %d spd (%s) + %d acc (%s)',
+              marker, len(t.df), mask.sum(), (c < 0).sum(),
+              (spd > max_speed).sum(), ' '.join(below(spd, r) for r in SPEEDS),
+              (acc > max_acc).sum(), ' '.join(below(acc, r) for r in ACCELS))
         t.df.ix[mask, marker + '-x':marker + '-c'] = float('nan')
 
     # drop unusable marker data.
