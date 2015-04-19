@@ -482,9 +482,11 @@ class Movement(DF):
                         body_delta[bc] / goal_delta[gc]
             logging.info('computed inverse jacobian %d', frames)
 
+        dt = self.approx_delta_t
         jac = [c for c in self.df.columns if c.startswith('jac')]
         for i in self.df.target.diff(1).nonzero()[0]:
-            self.df.ix[i:i+frame, inv] = float('nan')
+            logging.info('zeroing out jacobian %d:%d', i*dt, (i+frames)*dt)
+            self.df.loc[i*dt:(i+frames)*dt, jac] = float('nan')
 
         return stats
 
