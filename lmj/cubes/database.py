@@ -426,8 +426,10 @@ class Movement(DF):
         ds = pd.Series(self.df.index, index=self.df.index)
         dt = ds.shift(-1) - ds.shift(-1)
         for c in self.marker_velocity_columns:
-            self.df['{}-v{}'.format(c[:-2], c[-1])] = pd.rolling_mean(
-                self.df[c].diff(2).shift(-1) / dt, smooth, center=True)
+            a = self.df[c].diff(2).shift(-1) / dt
+            if smooth:
+                a = pd.rolling_mean(a, smooth, center=True)
+            self.df['{}-a{}'.format(c[:-2], c[-1])] = a
 
     def add_jacobian(self, frames, forward=True, inverse=False):
         '''Add columns to the data for representing the jacobian.
