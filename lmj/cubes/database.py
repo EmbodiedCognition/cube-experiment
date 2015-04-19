@@ -431,7 +431,7 @@ class Movement(DF):
                 a = pd.rolling_mean(a, smooth, center=True)
             self.df['{}-a{}'.format(c[:-3], c[-1])] = a
 
-    def add_jacobian(self, frames, forward=True, inverse=False):
+    def add_jacobian(self, frames, forward=True, inverse=False, vel=False, acc=False):
         '''Add columns to the data for representing the jacobian.
 
         Parameters
@@ -442,6 +442,12 @@ class Movement(DF):
             Add forward jacobian. Defaults to True.
         inverse : bool, optional
             Add inverse jacobian. Defaults to False.
+        vel : bool, optional
+            Include pointwise velocity in state while computing jacobian.
+            Defaults to False.
+        acc : bool, optional
+            Include pointwise acceleration in state while computing jacobian.
+            Defaults to False.
 
         Returns
         -------
@@ -453,12 +459,20 @@ class Movement(DF):
         body = Trial(self.parent, self.basename)
         body.df = self.df.copy()
         stats = body.make_body_relative()
+        if vel:
+            body.add_velocities()
+            if acc:
+                body.add_accelerations()
         body_delta = body.df.diff(frames)
         logging.info('computed body delta %d', frames)
 
         goal = Trial(self.parent, self.basename)
         goal.df = self.df.copy()
         goal.make_target_relative()
+        if vel:
+            goal.add_velocities()
+            if acc:
+                goal.add_accelerations()
         goal_delta = goal.df.diff(frames)
         logging.info('computed goal delta %d', frames)
 
