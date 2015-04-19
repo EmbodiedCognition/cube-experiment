@@ -9,10 +9,12 @@ import numpy as np
 def _check(t):
     t.load()
     t.add_velocities(smooth=0)
+    t.add_accelerations(smooth=0)
     vel = abs(t.df[t.marker_velocity_columns].values).flatten()
     vel = vel[np.isfinite(vel)]
     pct = np.percentile(vel, [1, 2, 5, 10, 20, 50, 80, 90, 95, 98, 99])
-    print(t.subject.key, t.block.key, t.key, *pct)
+    np.set_printoptions(suppress=True, linewidth=1000, precision=2)
+    t.log('%s', pct)
 
 
 def main(root):
