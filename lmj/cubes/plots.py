@@ -60,24 +60,29 @@ def show_cubes(ax, trial, target_num=None):
     ----------
     ax : plotting axes
     trial : Trial object
-    target_num : int or set of int, optional
-        If given, only show this/these targets.
+    target_num : int or sequence of int, optional
+        If given, only show labels for this/these targets.
     '''
-    if target_num is None:
-        target_num = range(12)
-    elif isinstance(target_num, int):
-        target_num = (target_num, )
-    to_plot = set(target_num)
-    xs, ys, zs = [-1000], [-1000], [-1000]
+    labels = set(range(12))
+    if target_num is not None:
+        if isinstance(target_num, int):
+            target_num = (target_num, )
+        labels = set(target_num)
+    to_plot = set(range(12))
+    xs, ys, zs = [], [], []
     for flavor in ('source', 'target'):
         cols = [flavor + suffix for suffix in ('', '-x', '-y', '-z')]
         for _, (n, x, y, z) in trial.df[cols].drop_duplicates().iterrows():
-            if n in to_plot:
-                to_plot.remove(n)
-                xs.append(x)
-                ys.append(y)
-                zs.append(z)
-                ax.text(x, z - 0.1, y + 0.1, str(int(n)))
+            if n not in to_plot:
+                continue
+            to_plot.remove(n)
+            xs.append(x)
+            ys.append(y)
+            zs.append(z)
+            if n in labels:
+                label = str(int(n))
+                o = 0.1 * len(label)
+                ax.text(x - o, z - o, y + 0.2, label)
     ax.scatter(xs, zs, ys, marker='o', s=200, color='#111111', linewidth=0, alpha=0.7)
 
 
