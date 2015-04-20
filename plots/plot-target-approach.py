@@ -7,19 +7,20 @@ import lmj.plot
 import numpy as np
 import pandas as pd
 
-FRAME_RATE = 100
-MARKERS = 'r-fing-index l-fing-index r-heel   r-head-front'
-_COLORS = '#111111      #d62728      #1f77b4  #2ca02c'
+FRAME_RATE = 50
+MARKERS = 'r-fing-index  l-fing-index  r-heel    r-head-front'
+_COLORS = '#111111       #d62728       #1f77b4   #2ca02c'
 COLORS = dict(zip(MARKERS.split(), _COLORS.split()))
 
 @climate.annotate(
     root='read subject data from this file tree',
     pattern=('plot data from files matching this pattern', 'option'),
     output=('save movie in this output filename', 'option'),
+    animate=('if given, create a rotating 3d animation', 'option'),
     target=('plot data for this target', 'option', None, int),
     approach_sec=('plot variance for N sec prior to target acquisition', 'option', None, float),
 )
-def main(root, pattern='*/*/*trial00*', output=None, target=3, approach_sec=1):
+def main(root, pattern='*/*/*trial00*', output=None, animate=None, target=3, approach_sec=1):
     targets = None
     num_frames = int(FRAME_RATE * approach_sec)
 
@@ -65,14 +66,20 @@ def main(root, pattern='*/*/*trial00*', output=None, target=3, approach_sec=1):
                     [sx[-t], sy[-t], sz[-t]])
                 ax.plot_wireframe(x, z, y, color=COLORS[marker], alpha=0.3, lw=1)
 
-    anim = lmj.plot.rotate_3d(
-        lmj.cubes.plots.show_3d(render),
-        output=output,
-        azim=(0, 90),
-        elev=(5, 20),
-        fig=dict(figsize=(10, 4.8)))
-    if not output:
-        lmj.plot.show()
+    if animate:
+        lmj.plot.rotate_3d(
+            lmj.cubes.plots.show_3d(render),
+            output=output,
+            azim=(0, 90),
+            elev=(5, 20),
+            fig=dict(figsize=(10, 4.8)))
+        if not output:
+            lmj.plot.show()
+    else:
+        with lmj.plot.axes3d() as ax:
+            render(ax)
+            lmj.cubes.plots.show_3d(lambda ax: None)(ax)
+            ax.view_init(elev=15, azim=-110)
 
 
 if __name__ == '__main__':
