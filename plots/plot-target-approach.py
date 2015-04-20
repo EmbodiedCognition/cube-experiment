@@ -50,6 +50,7 @@ def main(root, pattern='*/*/*trial00*', output=None, animate=None, target=3, app
             for (m, s), (mean, stderr) in agg.items():
                 if m == marker:
                     ax.plot(ts, stderr.sum(axis=1)[-num_frames:], color=COLORS[marker])
+        ax.set_xlim(-num_frames, 0)
         ax.set_xticks(np.linspace(-num_frames, 0, 5))
         ax.set_xticklabels(np.linspace(-num_frames / FRAME_RATE, 0, 5))
         ax.set_xlabel('Time Before Touch (sec)')
