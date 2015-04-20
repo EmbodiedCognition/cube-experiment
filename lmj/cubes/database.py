@@ -501,7 +501,7 @@ class Movement(DF):
         dt = self.approx_delta_t
         jac = [c for c in self.df.columns if c.startswith('jac')]
         for i in self.df.target.diff(1).nonzero()[0]:
-            logging.info('zeroing out jacobian %d:%d', i*dt, (i+frames)*dt)
+            logging.info('zeroing out jacobian %.3f:%.3f', i*dt, (i+frames)*dt)
             self.df.loc[i*dt:(i+frames)*dt, jac] = float('nan')
 
         return stats
