@@ -1,28 +1,44 @@
-head_r 
-head_l
-neck_r
-neck_l
-torso_x
-torso_y
-u_torso_z
-l_torso_z
-pelvis_z
-collar_x
-collar_y
-collar_z
-u_arm_r
-u_arm_l
-l_arm_r
-l_arm_l
-hand_x
-hand_y
-hand_z
-u_leg_r
-u_leg_l
-l_leg_r
-l_leg_l
-foot_x
-foot_z
-foot_y
-heel_y
-toe_y
+head-x 0.10 0.20
+head-y 0.10 0.25
+head-z 0.15 0.25
+
+neck-x 0.06 0.10
+neck-y 0.06 0.10
+neck-z 0.06 0.10
+
+torso-x   0.20 0.30
+torso-y   0.15 0.25
+u-torso-z 0.12 0.20
+l-torso-z 0.12 0.20
+pelvis-z  0.12 0.20
+
+collar-x 0.10 0.20
+collar-y 0.08 0.12
+collar-z 0.04 0.06
+
+u-arm-x 0.06 0.10
+u-arm-y 0.10 0.15
+u-arm-z 0.20 0.35
+
+l-arm-x 0.06 0.10
+l-arm-y 0.08 0.12
+l-arm-z 0.18 0.28
+
+hand-x 0.06 0.09
+hand-y 0.03 0.05
+palm-z 0.06 0.10
+fingers-z 0.06 0.11
+
+u-leg-x 0.10 0.15
+u-leg-y 0.12 0.20
+u-leg-z 0.30 0.45
+
+l-leg-x 0.09 0.13
+l-leg-y 0.09 0.13
+l-leg-z 0.20 0.40
+
+foot-x 0.07 0.09
+foot-y 0.08 0.13
+foot-z 0.05 0.08
+toes-y 0.08 0.13
+toes-z 0.04 0.05

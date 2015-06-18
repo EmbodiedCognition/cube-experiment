@@ -1,158 +1,188 @@
 # --- body segments ---
 
-body cap head     radius {head_r} length {head_l}  position 0 0 2  density 850
-body cap neck     radius {neck_r} length {neck_l}
-body box u-torso  lengths {torso_x} {torso_y} {u_torso_z}  density 900
-body box l-torso  lengths {torso_x} {torso_y} {l_torso_z}  density 900
-body box pelvis   lengths {torso_x} {torso_y} {pelvis_z}  root
+body box head      lengths  {head-x}  {head-y}    {head-z}  density 900  position 0 0 2
+body box neck      lengths  {neck-x}  {neck-y}    {neck-z}  density 900
+body box u-torso   lengths {torso-x} {torso-y} {u-torso-z}  density 900
+body box l-torso   lengths {torso-x} {torso-y} {l-torso-z}  density 900
+body box pelvis    lengths {torso-x} {torso-y}  {pelvis-z}  density 900  root
 
-body box r-collar lengths {collar_x} {collar_y} {collar_z}
-body cap ru-arm   radius {u_arm_r} length {u_arm_l}
-body cap rl-arm   radius {l_arm_r} length {l_arm_l}  density 1100
-body box r-hand   lengths {hand_x} {hand_y} {hand_z}  density 1100
+body box r-collar  lengths {collar-x} {collar-y}  {collar-z}
+body box ru-arm    lengths  {u-arm-x}  {u-arm-y}   {u-arm-z}
+body box rl-arm    lengths  {l-arm-x}  {l-arm-y}   {l-arm-z}  density 1100
+body box r-palm    lengths   {hand-x}   {hand-y}    {palm-z}  density 1100
+body box r-fingers lengths   {hand-x}   {hand-y} {fingers-z}  density 1100
 
-body cap ru-leg   radius {u_leg_r} length {u_leg_l}
-body cap rl-leg   radius {l_leg_r} length {l_leg_l}  density 1100
-body box r-heel   lengths {foot_x} {heel_y} {foot_z}  density 1100
-body box r-foot   lengths {foot_x} {foot_y} {foot_z}  density 1100  root
-body box r-toe    lengths {foot_x} {toe_y} {foot_z}  density 1100
+body box ru-leg    lengths {u-leg-x} {u-leg-y} {u-leg-z}
+body box rl-leg    lengths {l-leg-x} {l-leg-y} {l-leg-z}  density 1100
+body box r-foot    lengths  {foot-x}  {foot-y}  {foot-z}  density 1100  root
+body box r-toes    lengths  {foot-x}  {toes-y}  {toes-z}  density 1100  root
 
-body box l-collar lengths {collar_x} {collar_y} {collar_z}
-body cap lu-arm   radius {u_arm_r} length {u_arm_l}
-body cap ll-arm   radius {l_arm_r} length {l_arm_l}  density 1100
-body box l-hand   lengths {hand_x} {hand_y} {hand_z}  density 1100
+body box l-collar  lengths {collar-x} {collar-y}  {collar-z}
+body box lu-arm    lengths  {u-arm-x}  {u-arm-y}   {u-arm-z}
+body box ll-arm    lengths  {l-arm-x}  {l-arm-y}   {l-arm-z}  density 1100
+body box l-palm    lengths   {hand-x}   {hand-y}    {palm-z}  density 1100
+body box l-fingers lengths   {hand-x}   {hand-y} {fingers-z}  density 1100
 
-body cap lu-leg   radius {u_leg_r} length {u_leg_l}
-body cap ll-leg   radius {l_leg_r} length {l_leg_l}  density 1100
-body box l-heel   lengths {foot_x} {heel_y} {foot_z}  density 1100
-body box l-foot   lengths {foot_x} {foot_y} {foot_z}  density 1100  root
-body box l-toe    lengths {foot_x} {toe_y} {foot_z}  density 1100
+body box lu-leg    lengths {u-leg-x} {u-leg-y} {u-leg-z}
+body box ll-leg    lengths {l-leg-x} {l-leg-y} {l-leg-z}  density 1100
+body box l-foot    lengths  {foot-x}  {foot-y}  {foot-z}  density 1100  root
+body box l-toes    lengths  {foot-x}  {toes-y}  {toes-z}  density 1100  root
 
 # --- joint attachments ---
 
 # spine
-join ball  head 0 -0.5 -0.7  neck 0 0 0.9
-lo_stops -30 -30 -60
-hi_stops  60  30  60
+join ball
+head 0 -0.5 -0.9
+neck 0  0    1
+lo_stops -30 -30 -85
+hi_stops  60  30  85
 
-join ball  neck 0 -0.5 -0.9  u-torso 0 -0.5 0.9
-lo_stops -10 -30 -30
+join ball
+neck    0 -0.5 -1
+u-torso 0 -0.5  1
+lo_stops -30 -30 -30
 hi_stops  30  30  30
 
-join ball  u-torso 0 -1 -1  l-torso 0 -1 1
-lo_stops -10 -30 -10
-hi_stops  10  30  10
+join ball
+u-torso 0 -1 -1
+l-torso 0 -1  1
+lo_stops -20 -30 -10
+hi_stops  20  30  10
 
-join ball  l-torso 0 0 -1  pelvis 0 0 1
-lo_stops -10 -30 -10
-hi_stops  10  30  10
+join ball
+l-torso 0 0 -1
+pelvis  0 0  1
+lo_stops -20 -30 -10
+hi_stops  20  30  10
 
 # right arm
-join uni  u-torso 0.5 0 1  r-collar -1 0 -1
+join uni
+u-torso   0.5 0  1
+r-collar -1   0 -1
 axis0 0 1 0
 axis1 0 0 1
-lo_stops -30 -30
-hi_stops  30  30
+lo_stops -30 -10
+hi_stops  20  30
 
-join ball  r-collar 0.6 0 -0.9  ru-arm 0 0 0.9
-lo_stops -150 -70 -30
-hi_stops  150  70  150
+join ball
+r-collar 0.6 0 -1
+ru-arm   0   0  1
+lo_stops  -80 -80 -80
+hi_stops  170  40 120
 
-join uni  ru-arm 0 0 -0.9  rl-arm 0 0 0.9
+join uni
+ru-arm 0 0 -1
+rl-arm 0 0  1
 axis0 1 0 0
 axis1 0 0 1
 lo_stops -150 -70
 hi_stops    1  70
 
-join uni  rl-arm 0 -1 -0.9  r-hand 0 -1 1
+join hinge
+rl-arm 0 -1 -1
+r-palm 0 -1  1
 axis0 1 0 0
-axis1 0 1 0
-lo_stops -70 -40
-hi_stops  70  40
+lo_stops -70
+hi_stops  70
+
+join hinge
+r-palm    0 0 -1
+r-fingers 0 0  1
+axis0 1 0 0
+lo_stops -90
+hi_stops  30
 
 # left arm
-join uni  u-torso -0.5 0 1  l-collar 1 0 -1
+join uni
+u-torso -0.5 0  1
+l-collar 1   0 -1
 axis0 0 1 0
 axis1 0 0 1
-lo_stops -30 -30
-hi_stops  30  30
+lo_stops -30 -10
+hi_stops  20  30
 
-join ball  l-collar -0.6 0 -0.9  lu-arm 0 0 0.9
+join ball
+l-collar -0.6 0 -1
+lu-arm    0   0  1
 lo_stops -150 -70 -150
 hi_stops  150  70   30
 
-join uni  lu-arm 0 0 -0.9  ll-arm 0 0 0.9
+join uni
+lu-arm 0 0 -1
+ll-arm 0 0  1
 axis0 1 0 0
 axis1 0 0 1
 lo_stops -150 -70
 hi_stops    1  70
 
-join uni  ll-arm 0 -1 -0.9  l-hand 0 -1 1
+join hinge
+ll-arm 0 -1 -1
+l-palm 0 -1  1
 axis0 1 0 0
-axis1 0 1 0
-lo_stops -70 -40
-hi_stops  70  40
+lo_stops -70
+hi_stops  70
+
+join hinge
+l-palm    0 0 -1
+l-fingers 0 0  1
+axis0 1 0 0
+lo_stops -90
+hi_stops  30
 
 # right leg
-join ball  pelvis 0.6 0 -0.9  ru-leg 0 0 0.9
+join ball
+pelvis 0.6 0 -1
+ru-leg 0   0  1
 lo_stops -150 -70 -30
 hi_stops   70  70 150
 
-join hinge  ru-leg 0 0 -0.9  rl-leg 0 0 0.9
+join hinge
+ru-leg 0 0 -1
+rl-leg 0 0  1
 axis0 1 0 0
 lo_stops  -1
 hi_stops 150
 
-join uni  rl-leg 0 0 -1  r-foot 0 -0.5 0
+join uni
+rl-leg 0  0  -1
+r-foot 0 -0.5 1
 axis0 1 0 0
 axis1 0 1 0
 lo_stops -70 -20
 hi_stops  70  20
 
-join hinge  r-heel 0 -1 1  r-foot 0 -1 -1
+join hinge
+r-foot 0  1 -1
+r-toes 0 -1 -1
 axis0 1 0 0
-lo_stops -1
-hi_stops  1
-passive
-stop_cfm 1e-5
-stop_erp 0.9
-
-join hinge  r-toe 0 0 1  r-foot 0 1 -1
-axis0 1 0 0
-lo_stops -1
-hi_stops  1
-passive
-stop_cfm 0.01
-stop_erp 0.5
+lo_stops -60
+hi_stops  60
 
 # left leg
-join ball  pelvis -0.6 0 -0.9  lu-leg 0 0 0.9
+join ball
+pelvis -0.6 0 -1
+lu-leg  0   0  1
 lo_stops -120 -60 -120
 hi_stops   60  60   30
 
-join hinge  lu-leg 0 0 -0.9  ll-leg 0 0 0.9
+join hinge
+lu-leg 0 0 -1
+ll-leg 0 0  1
 axis0 1 0 0
 lo_stops  -1
 hi_stops 150
 
-join uni  ll-leg 0 0 -1  l-foot 0 -0.5 0
+join uni
+ll-leg 0  0  -1
+l-foot 0 -0.5 1
 axis0 1 0 0
 axis1 0 1 0
 lo_stops -70 -20
 hi_stops  70  20
 
-join hinge  l-heel 0 -1 1  l-foot 0 -1 -1
+join hinge
+l-foot 0  1 -1
+l-toes 0 -1 -1
 axis0 1 0 0
-lo_stops -1
-hi_stops  1
-passive
-stop_cfm 1e-5
-stop_erp 0.9
-
-join hinge  l-toe 0 0 1  l-foot 0 1 -1
-axis0 1 0 0
-lo_stops -1
-hi_stops  1
-passive
-stop_cfm 0.01
-stop_erp 0.5
+lo_stops -60
+hi_stops  60
