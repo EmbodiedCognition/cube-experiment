@@ -499,7 +499,7 @@ class Movement(DF):
                 for gc in goal.marker_channel_columns:
                     i = -2 if gc[-2] in 'av' else -1
                     gn = 'g{}{}'.format(gc[6:8], gc[i:])
-                    self.df['jac-fwd-{}/{}'.format(gn, bn)] = \
+                    df['jac-fwd-{}/{}'.format(gn, bn)] = \
                         goal_delta[gc] / body_delta[bc]
             logging.info('computed forward jacobian %d', frames)
             results.append(zero_after_target(df))
@@ -517,7 +517,7 @@ class Movement(DF):
             logging.info('computed inverse jacobian %d', frames)
             results.append(zero_after_target(df))
 
-        return stats
+        return results
 
     def mask_fiddly_target_frames(self, enter_threshold=0.25, exit_threshold=0.5):
         '''This code attempts to normalize the moment of target contact.
