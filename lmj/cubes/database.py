@@ -431,13 +431,16 @@ class Movement(DF):
                 a = pd.rolling_mean(a, smooth, center=True)
             self.df['{}-a{}'.format(c[:-3], c[-1])] = a
 
-    def jacobian(self, frames, forward=True, inverse=False, vel=False, acc=False):
+    def jacobian(self, frames, markers=None, forward=True, inverse=False, vel=False, acc=False):
         '''Add columns to the data for representing the jacobian.
 
         Parameters
         ----------
         frames : int
             Number of frames over which to compute jacobian values.
+        markers : list of str, optional
+            Markers to use when computing jacobian values. Defaults to using all
+            markers.
         forward : bool, optional
             Add forward jacobian. Defaults to True.
         inverse : bool, optional
@@ -482,8 +485,6 @@ class Movement(DF):
         goal_delta = goal.df.diff(frames)
         logging.info('computed goal delta %d', frames)
 
-        results = [stats]
-
         def zero_after_target(df):
             dt = self.approx_delta_t
             for i in self.df.target.diff(1).nonzero()[0]:
@@ -491,30 +492,39 @@ class Movement(DF):
                 df.loc[i*dt:(i+frames)*dt, :] = float('nan')
             return df
 
+        columns = self.marker_channel_columns
+        if markers is not None:
+            columns = ['{}-{}'.format(self.lookup_marker(m), c)
+                       for m in markers for c in 'xyz']
+
+        results = [stats]
+
         if forward:
             df = pd.DataFrame(index=self.df.index)
-            for bc in body.marker_channel_columns:
+            for bc in columns:
                 i = -2 if bc[-2] in 'av' else -1
                 bn = 'b{}{}'.format(bc[6:8], bc[i:])
-                for gc in goal.marker_channel_columns:
+                for gc in columns:
                     i = -2 if gc[-2] in 'av' else -1
                     gn = 'g{}{}'.format(gc[6:8], gc[i:])
                     df['jac-fwd-{}/{}'.format(gn, bn)] = \
                         goal_delta[gc] / body_delta[bc]
-            logging.info('computed forward jacobian %d', frames)
+            logging.info('computed forward jacobian (%d frames) %s',
+                         frames, df.shape)
             results.append(zero_after_target(df))
 
         if inverse:
             df = pd.DataFrame(index=self.df.index)
-            for gc in goal.marker_channel_columns:
+            for gc in columns:
                 i = -2 if gc[-2] in 'av' else -1
                 gn = 'g{}{}'.format(gc[6:8], gc[i:])
-                for bc in body.marker_channel_columns:
+                for bc in columns:
                     i = -2 if bc[-2] in 'av' else -1
                     bn = 'b{}{}'.format(bc[6:8], bc[i:])
                     df['jac-inv-{}/{}'.format(bn, gn)] = \
                         body_delta[bc] / goal_delta[gc]
-            logging.info('computed inverse jacobian %d', frames)
+            logging.info('computed inverse jacobian (%d frames) %s',
+                         frames, df.shape)
             results.append(zero_after_target(df))
 
         return results
