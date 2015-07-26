@@ -65,7 +65,7 @@ MARKERS = [
 SPEEDS = (0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20)
 ACCELS = (0.5, 1, 2, 5, 10, 20, 50, 100, 200)
 
-def reindex(t, root, output, frame_rate, interpolate, max_speed, max_acc):
+def reindex(t, root, output, frame_rate, max_speed, max_acc):
     t.load()
 
     def below(s, r):
@@ -94,16 +94,19 @@ def reindex(t, root, output, frame_rate, interpolate, max_speed, max_acc):
             del t.df[c]
 
     # reindex to regularly-spaced temporal index values.
-    posts = np.arange(0, t.df.index[-1], 1. / frame_rate)
-    df = t.df.reindex(posts, method='bfill', limit=1)
-    for c in df.columns:
+    limit = int(np.ceil(100 / frame_rate))
+    for c in t.df.columns:
         if not c.startswith('marker'):
-            df[c] = df[c].bfill().ffill()
+            t.df[c] = t.df[c].bfill().ffill()
         elif c[-1] in 'xyz':
-            df[c] = df[c].interpolate(limit=interpolate)
+            fw = t.df[c].interpolate(method='values', limit=limit)
+            bw = t.df[c][::-1].interpolate(method='values', limit=limit)
+            t.df[c] = fw.fillna(bw[::-1])
         elif c[-1] in 'c':
-            df[c] = df[c].fillna(value=1.2345, limit=interpolate)
-    t.df = df
+            fw = t.df[c].fillna(value=1.2345, limit=limit)
+            bw = t.df[c][::-1].fillna(value=1.2345, limit=limit)
+            t.df[c] = fw.fillna(bw[::-1])
+    t.df = t.df.reindex(np.arange(0, t.df.index[-1], 1 / frame_rate))
 
     t.save(t.root.replace(root, output))
 
@@ -113,14 +116,13 @@ def reindex(t, root, output, frame_rate, interpolate, max_speed, max_acc):
     output='save smoothed data files to this directory tree',
     pattern=('process only trials matching this pattern', 'option'),
     frame_rate=('reindex frames to this rate', 'option', None, float),
-    interpolate=('interpolate gaps of this many frames', 'option', None, int),
     max_speed=('treat frames with > speed as dropouts', 'option', None, float),
     max_acc=('treat frames with > acc as dropouts', 'option', None, float),
 )
-def main(root, output, pattern='*', frame_rate=100, interpolate=3, max_speed=5, max_acc=100):
+def main(root, output, pattern='*', frame_rate=100, max_speed=5, max_acc=100):
     trials = lmj.cubes.Experiment(root).trials_matching(pattern)
     work = joblib.delayed(reindex)
-    args = root, output, frame_rate, interpolate, max_speed, max_acc
+    args = root, output, frame_rate, max_speed, max_acc
     joblib.Parallel(-1)(work(t, *args) for t in trials)
 
 
