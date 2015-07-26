@@ -26,7 +26,7 @@ CENTERS = [
     'marker34-l-ilium',
     'marker35-r-ilium',
     'marker36-r-hip',
-    'marker37-r-knee',
+    'marker43-l-hip',
 ]
 
 
