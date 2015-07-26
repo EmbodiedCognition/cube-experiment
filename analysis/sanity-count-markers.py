@@ -32,6 +32,7 @@ def main(root):
         for m in markers:
             counts[m] += markers[m] > 0.1
             percents[m].append(markers[m])
+    print(*(['marker', 'count'] + [str(x) for x in PERCENTILES]), sep='\t')
     for m, c in counts.items():
         print(m, c, *np.percentile(percents[m], PERCENTILES), sep='\t')
     return
