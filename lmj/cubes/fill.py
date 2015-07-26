@@ -13,12 +13,10 @@ g.add_argument('--output', metavar='DIR',
                help='save smoothed data files to tree at DIR')
 g.add_argument('--pattern', default='*', metavar='SHPAT',
                help='process only trials matching this pattern')
-g.add_argument('--rank', type=float, metavar='K',
+g.add_argument('--autoencoder-rank', type=float, metavar='K',
                help='reconstruction rank')
-g.add_argument('--threshold', type=float, metavar='S',
+g.add_argument('--svt-threshold', type=float, metavar='S',
                help='truncate singular values at threshold S')
-g.add_argument('--tol', type=float, metavar='E',
-               help='reconstruction error tolerance')
 g.add_argument('--window', type=int, metavar='T',
                help='process windows of T frames')
 
@@ -28,6 +26,8 @@ CENTERS = [
     'marker36-r-hip',
     'marker43-l-hip',
 ]
+
+PHASESPACE_TOLERANCE = 0.001  # error tolerance of phasespace system
 
 
 def stack(dfs, window):
