@@ -53,7 +53,7 @@ def extract(trial, output, frames):
     starts = list(trial.df.target.diff(1).nonzero()[0])
     sources = ['0123456789ab'[int(i)] for i in trial.df.source.unique()]
     targets = ['0123456789ab'[int(i)] for i in trial.df.target.unique()]
-    for i, end in enumerate(starts[1:] + [len(body)]):
+    for i, end in enumerate(starts[1:] + [len(body) - frames]):
         frm = '{:04d},{:04d}'.format(start, end)
         tgt = '{},{}'.format(sources[i], targets[i])
         if not (np.isnan(body.iloc[start:end].values).any() or
