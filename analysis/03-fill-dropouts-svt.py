@@ -32,7 +32,9 @@ def svt(dfs, threshold, window):
     # if the threshold is none, set it using the falloff point in the spectrum.
     if threshold is None:
         s = pd.Series(np.linalg.svd(pos, compute_uv=False))
-        threshold = s[s.diff().diff().shift(-1).argmax()]
+        v = pd.rolling_mean(11, s.diff(), center=True)
+        a = pd.rolling_mean(11, v.diff().shift(-1), center=True)
+        threshold = s[a.argmax()]
         logging.info('using threshold %.2f', threshold)
 
     i = 0
