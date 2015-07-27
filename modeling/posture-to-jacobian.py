@@ -1,35 +1,48 @@
 import climate
+import glob
 import lmj.cubes
 import numpy as np
+import os
 import theanets
 
 
-def main(root, pattern, frames=10):
+def main(root):
+    files = glob.glob(os.path.join(root, '*_body.npy'))
+
+    batch = 256
+    nbody = np.load(files[0]).shape[1]
+    njacobian = np.load(files[0].replace('_body', '_fjac_400')).shape[1]
 
     net = theanets.Regressor([
-        poss[0].shape[1],
-        dict(name='latent', size=1000),
+        nbody + nbody,
         300,
-        jacs[0].shape[1],
-    ])
+        300,
+        dict(size=njacobian, activation='linear', inputs={'hid2:out': 300}, name='mean'),
+        dict(size=njacobian, activation='relu', inputs={'hid2:out': 300}, name='covar'),
+    ], loss='gll')
 
     def paired():
-        p = np.zeros((64, poss[0].shape[1]), 'f')
-        j = np.zeros((64, jacs[0].shape[1]), 'f')
-        for i in range(len(p)):
-            s = np.random.randint(len(poss))
-            ps, js = poss[s], jacs[s]
-            o = 0
-            while any(js[o].isnull()):
-                o = np.random.randint(len(ps))
-            p[i], j[i] = ps[o], js[o]
-        return [p, j]
+        s = np.random.randint(len(files))
+        body = np.load(files[s])
+        goal = np.load(files[s].replace('_body', '_goal'))
+        fjac = np.load(files[s].replace('_body', '_fjac_400'))
+        inputs = np.zeros((batch, nbody + nbody), 'f')
+        targets = np.zeros((batch, njacobian), 'f')
+        for b in range(batch):
+            o = np.random.randint(len(body))
+            inputs[b, :nbody] = body[o]
+            inputs[b, nbody:] = goal[o]
+            targets[b] = fjac[o]
+        return [inputs, targets]
 
     net.train(
         paired,
-        input_noise=1,
-        hidden_l1={'latent:out': 1},
-        monitors={'hid1:out': (0, 0.01, 0.1, 1)},
+        momentum=0.9,
+        #input_noise=0.5,
+        max_gradient_norm=10,
+        monitors={
+            'hid1:out': (0.0001, 0.001, 0.01, 0.1, 1),
+        },
     )
 
 
