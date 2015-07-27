@@ -8,12 +8,12 @@ import os
 
 def extract(trial, output, frames):
     dirname = os.path.join(output, trial.subject.key)
-    pattern = '{}-{}-{{}}.npy'.format(trial.block.key, trial.key)
     if not os.path.isdir(dirname):
         os.makedirs(dirname)
 
-    def save(key, arr):
-        out = os.path.join(dirname, pattern.format(key))
+    def save(arr, frames, targets, key):
+        out = os.path.join(dirname, '{}_{}_{}_{}_{}.npy'.format(
+            trial.block.key, trial.key, frames, targets, key))
         logging.info('%s: %s', out, arr.shape)
         np.save(out, arr.values)
 
@@ -33,14 +33,37 @@ def extract(trial, output, frames):
     goal.add_velocities()
     goal = goal.df[goal.marker_channel_columns]
 
-    _, jac = trial.jacobian(frames)
+    _, fjac, ijac = trial.jacobian(frames, inverse=True)
+
+    # write out column names for three data types.
+    with open(os.path.join(dirname, 'body-columns.txt'), 'w') as h:
+        for c in body.columns:
+            h.write(c + '\n')
+    with open(os.path.join(dirname, 'goal-columns.txt'), 'w') as h:
+        for c in goal.columns:
+            h.write(c + '\n')
+    with open(os.path.join(dirname, 'fjac-columns.txt'), 'w') as h:
+        for c in fjac.columns:
+            h.write(c + '\n')
+    with open(os.path.join(dirname, 'ijac-columns.txt'), 'w') as h:
+        for c in ijac.columns:
+            h.write(c + '\n')
 
     start = frames
     starts = list(trial.df.target.diff(1).nonzero()[0])
+    sources = ['0123456789ab'[int(i)] for i in trial.df.source.unique()]
+    targets = ['0123456789ab'[int(i)] for i in trial.df.target.unique()]
     for i, end in enumerate(starts[1:] + [len(body)]):
-        save('body-{:02d}'.format(i), body.iloc[start:end])
-        save('goal-{:02d}'.format(i), goal.iloc[start:end])
-        save('jac-{:02d}'.format(i), jac.iloc[start:end])
+        frm = '{:04d},{:04d}'.format(start, end)
+        tgt = '{},{}'.format(sources[i], targets[i])
+        if not (np.isnan(body.iloc[start:end].values).any() or
+                np.isnan(goal.iloc[start:end].values).any() or
+                np.isnan(fjac.iloc[start:end].values).any() or
+                np.isnan(ijac.iloc[start:end].values).any()):
+            save(body.iloc[start:end], frm, tgt, 'body')
+            save(goal.iloc[start:end], frm, tgt, 'goal')
+            save(fjac.iloc[start:end], frm, tgt, 'fjac')
+            save(ijac.iloc[start:end], frm, tgt, 'ijac')
         start = end + frames
 
 
