@@ -37,7 +37,8 @@ def work(t, root, output, freq):
     t.load()
     count = t.df.count().sum()
     lowpass(t.df, freq)
-    logging.info('%s -> %s', count, t.df.count().sum())
+    t.df = t.df.ffill().bfill()
+    logging.info('filled in frames: %s -> %s', count, t.df.count().sum())
     t.save(t.root.replace(root, output))
 
 
