@@ -472,7 +472,7 @@ class Movement(DF):
             if acc:
                 body.add_accelerations()
         body_delta = body.df.diff(frames)
-        logging.info('computed body delta %d', frames)
+        logging.info('computed body delta %d: %s', frames, body_delta.shape)
 
         # make a copy of our data in goal-relative coordinates.
         goal = Trial(self.parent, self.basename)
@@ -483,19 +483,19 @@ class Movement(DF):
             if acc:
                 goal.add_accelerations()
         goal_delta = goal.df.diff(frames)
-        logging.info('computed goal delta %d', frames)
+        logging.info('computed goal delta %d: %s', frames, goal_delta.shape)
 
         def zero_after_target(df):
-            dt = self.approx_delta_t
             for i in self.df.target.diff(1).nonzero()[0]:
-                logging.info('zeroing out jacobian %.3f:%.3f', i*dt, (i+frames)*dt)
-                df.loc[i*dt:(i+frames)*dt, :] = float('nan')
+                logging.info('zeroing out jacobian %d:%d', i, i + frames)
+                df.iloc[i:i+frames, :] = float('nan')
             return df
 
-        columns = self.marker_channel_columns
+        columns = body.marker_channel_columns
         if markers is not None:
             columns = ['{}-{}'.format(self.lookup_marker(m), c)
                        for m in markers for c in 'xyz']
+        logging.info('computing jacobian for columns: %s', columns)
 
         results = [stats]
 
