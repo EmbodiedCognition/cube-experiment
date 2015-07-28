@@ -431,25 +431,21 @@ class Movement(DF):
                 a = pd.rolling_mean(a, smooth, center=True)
             self.df['{}-a{}'.format(c[:-3], c[-1])] = a
 
-    def jacobian(self, frames, markers=None, forward=True, inverse=False, vel=False, acc=False):
-        '''Add columns to the data for representing the jacobian.
+    def jacobian(self, frames, markers=None, vel=False, acc=False):
+        '''Add columns to the data for representing the Jacobian.
 
         Parameters
         ----------
         frames : int
-            Number of frames over which to compute jacobian values.
+            Number of frames over which to compute Jacobian values.
         markers : list of str, optional
-            Markers to use when computing jacobian values. Defaults to using all
+            Markers to use when computing Jacobian values. Defaults to using all
             markers.
-        forward : bool, optional
-            Add forward jacobian. Defaults to True.
-        inverse : bool, optional
-            Add inverse jacobian. Defaults to False.
         vel : bool, optional
-            Include pointwise velocity in state while computing jacobian.
+            Include pointwise velocity in state while computing Jacobian.
             Defaults to False.
         acc : bool, optional
-            Include pointwise acceleration in state while computing jacobian.
+            Include pointwise acceleration in state while computing Jacobian.
             Defaults to False.
 
         Returns
@@ -458,10 +454,8 @@ class Movement(DF):
             A data frame containing z-score summary statistics for body-relative
             data. The index for this frame contains 'mean' and 'std' keys, and
             the columns correspond to marker channel columns.
-        fwd : pandas.DataFrame
-            A data frame containing forward jacobian values, if so requested.
-        inv : pandas.DataFrame
-            A data frame containing inverse jacobian values, if so requested.
+        jacobian : pandas.DataFrame
+            A data frame containing Jacobian values, if so requested.
         '''
         # make a copy of our data in body-relative coordinates.
         body = Trial(self.parent, self.basename)
@@ -485,49 +479,27 @@ class Movement(DF):
         goal_delta = goal.df.diff(frames)
         logging.info('computed goal delta %d: %s', frames, goal_delta.shape)
 
-        def zero_after_target(df):
-            for i in self.df.target.diff(1).nonzero()[0]:
-                logging.info('zeroing out jacobian %d:%d', i, i + frames)
-                df.iloc[i:i+frames, :] = float('nan')
-            return df
-
         columns = body.marker_channel_columns
         if markers is not None:
             columns = ['{}-{}'.format(self.lookup_marker(m), c)
                        for m in markers for c in 'xyz']
         logging.info('computing jacobian for columns: %s', columns)
 
-        results = [stats]
-
-        if forward:
-            df = pd.DataFrame(index=self.df.index)
-            for bc in columns:
-                i = -2 if bc[-2] in 'av' else -1
-                bn = 'b{}{}'.format(bc[6:8], bc[i:])
-                for gc in columns:
-                    i = -2 if gc[-2] in 'av' else -1
-                    gn = 'g{}{}'.format(gc[6:8], gc[i:])
-                    df['jac-fwd-{}/{}'.format(gn, bn)] = \
-                        goal_delta[gc] / body_delta[bc]
-            logging.info('computed forward jacobian (%d frames) %s',
-                         frames, df.shape)
-            results.append(zero_after_target(df))
-
-        if inverse:
-            df = pd.DataFrame(index=self.df.index)
+        jac = pd.DataFrame(index=self.df.index)
+        for bc in columns:
+            i = -2 if bc[-2] in 'av' else -1
+            bn = 'b{}{}'.format(bc[6:8], bc[i:])
             for gc in columns:
                 i = -2 if gc[-2] in 'av' else -1
                 gn = 'g{}{}'.format(gc[6:8], gc[i:])
-                for bc in columns:
-                    i = -2 if bc[-2] in 'av' else -1
-                    bn = 'b{}{}'.format(bc[6:8], bc[i:])
-                    df['jac-inv-{}/{}'.format(bn, gn)] = \
-                        body_delta[bc] / goal_delta[gc]
-            logging.info('computed inverse jacobian (%d frames) %s',
-                         frames, df.shape)
-            results.append(zero_after_target(df))
+                jac['jac-{}/{}'.format(gn, bn)] = goal_delta[gc] / body_delta[bc]
+        logging.info('computed jacobian (%d frames) %s', frames, jac.shape)
 
-        return results
+        for i in self.df.target.diff(1).nonzero()[0]:
+            logging.info('zeroing out jacobian %d:%d', i, i + frames)
+            jac.iloc[i:i+frames, :] = float('nan')
+
+        return stats, jac
 
     def mask_fiddly_target_frames(self, enter_threshold=0.25, exit_threshold=0.5):
         '''This code attempts to normalize the moment of target contact.
