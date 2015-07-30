@@ -36,10 +36,10 @@ def compress(source, k, activation, **kwargs):
 
     key = '{}_k{}'.format(activation, k)
     if 'hidden_l1' in kwargs:
-        key += '_s' + kwargs['hidden_l1']
+        key += '_s{hidden_l1:.4f}'.format(**kwargs)
 
     for df, fn in zip(dfs, fns):
-        df = pd.DataFrame(pca.encode(df), index=df.index)
+        df = pd.DataFrame(pca.encode(df.values.astype('f')), index=df.index)
         s = io.StringIO()
         df.to_csv(s, index_label='time')
         out = fn.replace('_jac', '_jac_' + key)
@@ -60,8 +60,9 @@ def main(root, k=1000, activation='relu'):
     for subject in lmj.cubes.Experiment(root).subjects:
         compress(subject.root, k, activation,
                  momentum=0.9,
-                 hidden_l1=0.9,
-                 monitors={'hid1:out': (0.1, 0.5, 0.9)})
+                 hidden_l1=0.01,
+                 weight_l1=0.01,
+                 monitors={'hid1:out': (0.01, 0.1, 1, 10)})
 
 
 if __name__ == '__main__':
