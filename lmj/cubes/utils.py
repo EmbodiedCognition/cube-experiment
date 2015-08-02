@@ -30,9 +30,6 @@ def pickled(f, cache='pickles'):
     cache : str
         Directory location for storing cached results.
     '''
-    if not os.path.isdir(cache):
-        logging.info('creating pickle cache %s', os.path.abspath(cache))
-        os.makedirs(cache)
     def wrapper(*args, **kwargs):
         h = hashlib.md5()
         for a in args:
@@ -48,4 +45,7 @@ def pickled(f, cache='pickles'):
         with gzip.open(tmpfile, 'wb') as handle:
             pickle.dump(result, handle)
         return result
+    if not os.path.isdir(cache):
+        logging.info('creating pickle cache %s', os.path.abspath(cache))
+        os.makedirs(cache)
     return wrapper
