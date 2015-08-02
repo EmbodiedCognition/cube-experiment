@@ -112,7 +112,8 @@ class Subject(TimedMixin, TreeMixin):
         self.basename = basename
         self.experiment = self.parent = experiment
         self.blocks = self.children = [
-            Block(self, f) for f in sorted(os.listdir(self.root))]
+            Block(self, f) for f in sorted(os.listdir(self.root))
+            if os.path.isdir(os.path.join(self.root, f))]
         logging.info('subject %s: %d blocks, %d trials',
                      self.key, len(self.blocks),
                      sum(len(b.trials) for b in self.blocks))
