@@ -11,14 +11,13 @@ import os
 TARGETS = '0123456789ab'
 
 
-def extract(trial, output, frames):
-    dirname = os.path.join(output, trial.subject.key, trial.block.key)
+def extract(trial, root, output, frames):
+    fn = trial.root.replace(root, output).replace('.csv.gz', '')
 
     def save(df, targets, key):
-        if not os.path.isdir(dirname):
-            os.makedirs(dirname)
-        out = os.path.join(
-            dirname, '{}_{}_{}.csv.gz'.format(trial.key, targets, key))
+        if not os.path.isdir(os.path.dirname(fn)):
+            os.makedirs(os.path.dirname(fn))
+        out = fn + '_{}_{}.csv.gz'.format(targets, key)
         s = io.StringIO()
         df.to_csv(s, index_label='time')
         with gzip.open(out, 'w') as handle:
@@ -58,7 +57,7 @@ def extract(trial, output, frames):
 def main(root, output, frames=10):
     trials = lmj.cubes.Experiment(root).trials_matching('*')
     work = joblib.delayed(extract)
-    joblib.Parallel(-1)(work(t, output, frames) for t in trials)
+    joblib.Parallel(-1)(work(t, root, output, frames) for t in trials)
 
 
 if __name__ == '__main__':
