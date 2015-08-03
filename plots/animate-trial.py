@@ -3,7 +3,9 @@
 import climate
 import collections
 import lmj.cubes
+import numpy as np
 import pagoda.viewer
+import pyglet
 
 BLACK = (0, 0, 0)
 WHITE = (1, 1, 1)
@@ -16,15 +18,13 @@ COLORS = (WHITE, RED, YELLOW, GREEN, BLUE, ORANGE)
 
 
 class Window(pagoda.viewer.Window):
-    def __init__(self, trial, paused=False, dropout=False):
+    def __init__(self, trial, paused=False):
         super().__init__(paused=paused)
 
-        self.dropout = dropout
-
-        values = trial.df[[c for c in trial.columns if c.startswith('marker')]].values
-        values = values.reshape((len(trial.df), -1, 4))
-        self._frames = iter(values)
         self._frame_rate = 1 / trial.approx_delta_t
+        self._frames = iter(trial.df[
+            trial.marker_position_columns
+        ].values.reshape((len(trial.df), -1, 3)))
 
         self.targets = trial.target_trajectory.drop_duplicates().values
 
@@ -65,15 +65,9 @@ class Window(pagoda.viewer.Window):
     def _reset_trails(self):
         self._trails = [collections.deque(t, self._maxlen) for t in self._trails]
 
-    def _next_frame(self):
-        try:
-            return next(self._frames)
-        except StopIteration:
-            pyglet.app.exit()
-
     def step(self, dt):
-        for trail, (x, y, z, c) in zip(self._trails, self._next_frame()):
-            trail.append(None if self.dropout and not 0 < c < 10 else (x, z, y))
+        for trail, (x, y, z) in zip(self._trails, next(self._frames)):
+            trail.append(None if np.isnan(x) else (x, z, y))
 
 
 @climate.annotate(
@@ -84,7 +78,12 @@ class Window(pagoda.viewer.Window):
 def main(root, pattern, dropout=None):
     for t in lmj.cubes.Experiment(root).trials_matching(pattern):
         t.load()
-        Window(t, dropout=bool(dropout)).run()
+        if dropout:
+            t.mask_dropouts()
+        try:
+            Window(t).run()
+        except StopIteration:
+            pass
 
 
 if __name__ == '__main__':
