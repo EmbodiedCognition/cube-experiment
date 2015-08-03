@@ -566,16 +566,15 @@ class Movement(DF):
         Returns
         -------
         stats : pandas.DataFrame
-            A data frame containing summary statistics. The index for this frame
-            contains 'mean' and 'std' keys, and the columns correspond to marker
-            channel columns.
+            A data frame containing summary statistics. This frame contains 'mu'
+            (mean) and 'sigma' (std) columns; the index corresponds to marker
+            channels.
         '''
         df = self.df[self.marker_channel_columns]
-        stats = pd.DataFrame(dict(mu=df.mean(), sigma=df.std()))
+        mu, sigma = df.mean(), df.std()
         for c in self.marker_channel_columns:
-            self.df[c] -= stats.mu[c]
-            self.df[c] /= stats.sigma[c]
-        return stats
+            self.df[c] = (self.df[c] - mu[c]) / sigma[c]
+        return pd.DataFrame(dict(mu=mu, sigma=sigma))
 
     def make_body_relative(self):
         '''Translate and rotate marker data so that it's body-relative.
@@ -588,8 +587,9 @@ class Movement(DF):
             correspond to marker channel columns.
         '''
         t = self.trajectory
-        self.recenter((t('r-hip') + t('r-ilium') + t('l-hip') + t('l-ilium')) / 4)
-        r = ((t('r-hip') - t('r-ilium')) + (t('l-hip') - t('l-ilium'))) / 2
+        rh, ri, lh, li = t('r-hip'), t('r-ilium'), t('l-hip'), t('l-ilium')
+        self.recenter((rh + ri + lh + li) / 4)
+        r = ((rh - ri) + (lh - li)) / 2
         self.rotate_heading(np.arctan2(r.z, r.x))
         return self.convert_markers_to_z_scores()
 
