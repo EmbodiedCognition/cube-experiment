@@ -369,6 +369,7 @@ class Movement(DF):
             A data frame containing the center of our x values. This frame must
             have 'x', 'y', and 'z' columns.
         '''
+        center = center.copy()  # prevent overwriting our centering data!
         for c in self.columns:
             if c.endswith('-x'):
                 self.df[c] -= center.x
