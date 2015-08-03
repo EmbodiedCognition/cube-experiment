@@ -370,9 +370,12 @@ class Movement(DF):
             have 'x', 'y', and 'z' columns.
         '''
         for c in self.columns:
-            if c.endswith('-x'): self.df[c] -= center.x
-            if c.endswith('-y'): self.df[c] -= center.y
-            if c.endswith('-z'): self.df[c] -= center.z
+            if c.endswith('-x'):
+                self.df[c] -= center.x
+            if c.endswith('-y'):
+                self.df[c] -= center.y
+            if c.endswith('-z'):
+                self.df[c] -= center.z
         self.df['center-x'] = center.x
         self.df['center-y'] = center.y
         self.df['center-z'] = center.z
