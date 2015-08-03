@@ -4,17 +4,17 @@ import numpy as np
 
 
 @contextlib.contextmanager
-def space(show_afterwards=True):
+def space(xlim=(-2, 2), ylim=(-2, 2), zlim=(0, 2), show_afterwards=True):
     '''Produce a 3D plotting axes, for use in a with statement.'''
     fig = lmj.plot.figure(figsize=(11, 4))
     ax = lmj.plot.create_axes(111, projection='3d', aspect='equal', spines=None)
     yield ax
-    ax.set_xlim([-2, 2])
-    ax.set_ylim([-2, 2])
-    ax.set_zlim([ 0, 2])
-    ax.set_xticks([-2, -1, 0, 1, 2])
-    ax.set_yticks([-2, -1, 0, 1, 2])
-    ax.set_zticks([0, 1, 2])
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.set_zlim(zlim)
+    ax.set_xticks(np.linspace(xlim[0], xlim[1], 1 + int(xlim[1] - xlim[0])))
+    ax.set_yticks(np.linspace(ylim[0], ylim[1], 1 + int(ylim[1] - ylim[0])))
+    ax.set_yticks(np.linspace(zlim[0], zlim[1], 1 + int(zlim[1] - zlim[0])))
     ax.w_xaxis.set_pane_color((1, 1, 1, 1))
     ax.w_yaxis.set_pane_color((1, 1, 1, 1))
     ax.w_zaxis.set_pane_color((1, 1, 1, 1))
