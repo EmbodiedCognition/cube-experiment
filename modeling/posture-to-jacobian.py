@@ -1,15 +1,12 @@
 import climate
-import fnmatch
+import lmj.cubes
 import numpy as np
-import os
 import pandas as pd
 import theanets
 
+logging = climate.get_logger('posture->jac')
 
-def matching(root, pattern):
-    for root, dirs, files in os.walk(root):
-        for fn in fnmatch.filter(files, pattern):
-            yield os.path.join(root, fn)
+BATCH = 256
 
 
 def load_markers(fn):
@@ -20,40 +17,42 @@ def load_markers(fn):
 
 def load_jacobian(fn):
     df = pd.read_csv(fn, index_col='time').dropna()
-    cols = [c for c in df.columns if c.startswith('jac')]
+    cols = [c for c in df.columns if c.startswith('pc')]
     return df[cols].astype('f')
 
 
 def main(root):
-    bodys = [load_markers(f) for f in sorted(matching(root, '*_body.csv.gz'))]
-    goals = [load_markers(f) for f in sorted(matching(root, '*_goal.csv.gz'))]
-    jacs = [load_jacobian(f) for f in sorted(matching(root, '*_jac.csv.gz'))]
+    match = lmj.cubes.utils.matching
 
-    batch = 256
-
+    bodys = [load_markers(f) for f in sorted(match(root, '*_body.csv.gz'))]
     nbody = bodys[0].shape[1]
+    logging.info('loaded %d body-relative files', len(bodys))
+
+    goals = [load_markers(f) for f in sorted(match(root, '*_goal.csv.gz'))]
     ngoal = goals[0].shape[1]
+    logging.info('loaded %d goal-relative files', len(goals))
+
+    jacs = [load_jacobian(f) for f in sorted(match(root, '*_jac_pca23.csv.gz'))]
     njac = jacs[0].shape[1]
+    logging.info('loaded %d jacobian files', len(jacs))
 
     net = theanets.Regressor([
         nbody + ngoal,
         1000,
-        100,
         njac,
         #dict(size=njac, activation='linear', inputs={'hid2:out': 300}, name='mean'),
         #dict(size=njac, activation='linear', inputs={'hid2:out': 300}, name='covar'),
     ], )  # loss='gll')
 
     def paired():
-        s = np.random.randint(len(bodys))
-        body = bodys[s]
-        goal = goals[s]
-        jac = jacs[s]
-        idx = body.index & goal.index & jac.index
-        inputs = np.zeros((batch, nbody + ngoal), 'f')
-        targets = np.zeros((batch, njac), 'f')
-        for b in range(batch):
-            o = np.random.choice(idx)
+        inputs = np.zeros((BATCH, nbody + ngoal), 'f')
+        targets = np.zeros((BATCH, njac), 'f')
+        for b in range(BATCH):
+            s = np.random.randint(len(bodys))
+            body = bodys[s]
+            goal = goals[s]
+            jac = jacs[s]
+            o = np.random.choice(body.index & goal.index & jac.index)
             inputs[b, :nbody] = body.loc[o, :]
             inputs[b, nbody:] = goal.loc[o, :]
             targets[b] = jac.loc[o, :]
@@ -61,9 +60,11 @@ def main(root):
 
     net.train(
         paired,
+        algo='nag',
         momentum=0.9,
-        #input_noise=0.5,
-        max_gradient_norm=10,
+        input_noise=0.001,
+        max_gradient_norm=1,
+        learning_rate=0.0001,
         monitors={
             'hid1:out': (0.0001, 0.001, 0.01, 0.1, 1),
         },
