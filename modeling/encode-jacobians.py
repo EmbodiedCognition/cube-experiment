@@ -1,66 +1,72 @@
 #!/usr/bin/env python
 
 import climate
-import itertools
+import gzip
+import io
 import joblib
+import lmj.cubes
+import numpy as np
 import os
 import pandas as pd
-import random
-import theanets
-
-import database
+import pickle
+import sklearn.decomposition
 
 logging = climate.get_logger('encode')
 
 
-def encode(trial, output, network):
-    trial.load()
-    fwd = trial.df[[c for c in trial.columns if c.startswith('jac-fwd-pc')]]
-    for i, v in enumerate(network.encode(fwd.values).T):
-        trial.df['jac-fwd-enc{:02d}'.format(i)] = pd.Series(v, index=trial.df.index)
-    trial.save(trial.root.replace(trial.experiment.root, output))
+def load_jacobian(fn):
+    df = pd.read_csv(fn, index_col='time').dropna()
+    cols = [c for c in df.columns if c.startswith('jac')]
+    return df[cols].astype('f')
 
 
-g = climate.add_group('Jacobians')
-g.add_argument('--root', help='load experiment data from this root')
-g.add_argument('--output', help='store encoded data in this directory')
-g.add_argument('--pattern', default='*', help='only load trials matching this pattern')
-g.add_argument('--overcomplete', type=float, default=3, help='train Nx overcomplete dictionary')
+def encode(pca, fn):
+    df = load_jacobian(fn)
+    cols = [c for c in df.columns if c.startswith('jac')]
+    xf = pca.transform(df[cols].values)
+    k = xf.shape[1]
+    for c in cols:
+        del df[c]
+    for i in range(k):
+        df['pc-{}'.format(i)] = xf[:, i]
+    out = fn.replace('_jac', '_jac_pca{}'.format(k))
+    s = io.StringIO()
+    df.to_csv(s, index_label='time')
+    with gzip.open(out, 'wb') as handle:
+        handle.write(s.getvalue().encode('utf-8'))
+    logging.info('saved %s to %s', df.shape, out)
 
 
-def main(args):
-    trials = list(database.Experiment(args.root).trials_matching(args.pattern))
-    keys = [(t.block.key, t.key) for t in trials]
+def main(root):
+    files = list(lmj.cubes.utils.matching(root, '*_jac.csv.gz'))
+    np.random.shuffle(files)
 
-    # choose N trials per subject to train the dictionary.
-    N = 5
-    train_trials = []
-    valid_trials = []
-    for s, ts in itertools.groupby(trials, key=lambda t: t.subject.key):
-        ts = list(ts)
-        idx = list(range(len(ts)))
-        #random.shuffle(idx)
-        for i in idx[:N]:
-            train_trials.append(ts[i])
-            train_trials[-1].load()
-        for i in idx[N:N+2]:
-            valid_trials.append(ts[i])
-            valid_trials[-1].load()
+    data = []
+    cols = 0
+    rows = 0
+    for f in files:
+        jac = load_jacobian(f)
+        logging.info('%s: loaded %s', f, jac.shape)
+        rows += jac.shape[0]
+        cols = cols or jac.shape[1]
+        data.append(jac.values.astype('f'))
+        if rows > 3 * cols:
+            break
+    data = np.vstack(data)
+    logging.info('computing pca on %s', data.shape)
 
-    cols = [c for c in train_trials[0].columns if c.startswith('jac-fwd-pc')]
-    train = pd.concat([t.df for t in train_trials])[cols].dropna(axis=0).values.astype('f')
-    valid = pd.concat([t.df for t in valid_trials])[cols].dropna(axis=0).values.astype('f')
+    pca = sklearn.decomposition.PCA(n_components=0.99)
+    pca.fit(data)
 
-    exp = theanets.Experiment(
-        theanets.Autoencoder,
-        layers=(train.shape[1], args.overcomplete * train.shape[1], train.shape[1]),
-    )
+    cvar = ' '.join('{:.2f}'.format(100 * x) for x in
+                    pca.explained_variance_ratio_.cumsum())
+    logging.info('cumulative explained variance: %s', cvar)
 
-    exp.train(train)
+    with open(os.path.join(root, 'jac-pca.pkl'), 'wb') as handle:
+        pickle.dump(pca, handle)
 
-    exp.save(os.path.join(args.output, 'encoder.pkl.gz'))
-
-    joblib.Parallel(3)(joblib.delayed(encode)(t, args.output, exp.network) for t in trials)
+    work = joblib.delayed(encode)
+    joblib.Parallel(-1)(work(pca, f) for f in files)
 
 
 if __name__ == '__main__':

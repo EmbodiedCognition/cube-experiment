@@ -1,4 +1,5 @@
 import climate
+import fnmatch
 import gzip
 import hashlib
 import os
@@ -49,3 +50,10 @@ def pickled(f, cache='pickles'):
         logging.info('creating pickle cache %s', os.path.abspath(cache))
         os.makedirs(cache)
     return wrapper
+
+
+def matching(root, pattern):
+    '''Yield a sequence of files matching the given pattern.'''
+    for root, dirs, files in os.walk(root):
+        for fn in fnmatch.filter(files, pattern):
+            yield os.path.join(root, fn)
