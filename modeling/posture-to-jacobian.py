@@ -1,5 +1,6 @@
 import climate
 import lmj.cubes
+import lmj.plot
 import numpy as np
 import pandas as pd
 import theanets
@@ -7,6 +8,7 @@ import theanets
 logging = climate.get_logger('posture->jac')
 
 BATCH = 256
+THRESHOLD = 100
 
 
 def load_markers(fn):
@@ -36,39 +38,55 @@ def main(root):
     njac = jacs[0].shape[1]
     logging.info('loaded %d jacobian files', len(jacs))
 
+    '''
+    with lmj.plot.axes() as ax:
+        ax.hist(np.concatenate([j.values.ravel() for j in jacs]),
+                bins=np.linspace(-THRESHOLD, THRESHOLD, 127), lw=0)
+    '''
+
     net = theanets.Regressor([
         nbody + ngoal,
-        1000,
+        dict(size=1000, activation='sigmoid'),
+        dict(size=1000, activation='sigmoid'),
+        dict(size=1000, activation='sigmoid'),
+        dict(size=1000, activation='sigmoid'),
+        dict(size=1000, activation='sigmoid'),
+        dict(size=1000, activation='sigmoid'),
+        dict(size=1000, activation='sigmoid'),
+        dict(size=1000, activation='sigmoid'),
+        dict(size=1000, activation='sigmoid'),
+        dict(size=1000, activation='sigmoid'),
         njac,
         #dict(size=njac, activation='linear', inputs={'hid2:out': 300}, name='mean'),
         #dict(size=njac, activation='linear', inputs={'hid2:out': 300}, name='covar'),
-    ], )  # loss='gll')
+    ], loss='mse')  # 'gll')
 
-    def paired():
-        inputs = np.zeros((BATCH, nbody + ngoal), 'f')
-        targets = np.zeros((BATCH, njac), 'f')
-        for b in range(BATCH):
-            s = np.random.randint(len(bodys))
-            body = bodys[s]
-            goal = goals[s]
-            jac = jacs[s]
-            o = np.random.choice(body.index & goal.index & jac.index)
-            inputs[b, :nbody] = body.loc[o, :]
-            inputs[b, nbody:] = goal.loc[o, :]
-            targets[b] = jac.loc[o, :]
-        return [inputs, targets]
+    inputs = []
+    outputs = []
+    for s in range(len(bodys)):
+        body = bodys[s]
+        goal = goals[s]
+        jac = jacs[s]
+        idx = body.index & goal.index & jac.index
+        b = body.loc[idx, :].values
+        g = goal.loc[idx, :].values
+        inputs.append(np.hstack([b, g]))
+        outputs.append(np.clip(jac.loc[idx, :].values, -THRESHOLD, THRESHOLD))
 
     net.train(
-        paired,
-        algo='nag',
+        [np.vstack(inputs), np.vstack(outputs)],
+        algo='layerwise',
         momentum=0.9,
-        input_noise=0.001,
-        max_gradient_norm=1,
         learning_rate=0.0001,
+        patience=1,
+        min_improvement=0.01,
+        #max_gradient_norm=1,
+        #input_noise=0.001,
+        #hidden_l1=0.001,
+        #hidden_dropout=0.1,
         monitors={
-            'hid1:out': (0.0001, 0.001, 0.01, 0.1, 1),
-        },
-    )
+            #'*:out': (0.1, 0.5, 0.9),
+        })
 
 
 if __name__ == '__main__':
