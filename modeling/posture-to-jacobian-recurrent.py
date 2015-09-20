@@ -46,9 +46,11 @@ def main(root):
 
     net = theanets.recurrent.Regressor([
         nbody,
-        (1000, 'sigmoid', 'lrrnn'),
-        (1000, 'sigmoid', 'lrrnn'),
-        (1000, 'sigmoid', 'lrrnn'),
+        (200, 'sigmoid', 'gru'),
+        (200, 'sigmoid', 'gru'),
+        (200, 'sigmoid', 'gru'),
+        (200, 'sigmoid', 'gru'),
+        (200, 'sigmoid', 'gru'),
         njac,
         #dict(size=njac, activation='linear', inputs={'hid2:out': 300}, name='mean'),
         #dict(size=njac, activation='linear', inputs={'hid2:out': 300}, name='covar'),
@@ -97,7 +99,7 @@ def main(root):
         algo='layerwise',
         momentum=0.9,
         learning_rate=0.0001,
-        patience=1,
+        patience=5,
         min_improvement=0.01,
         #max_gradient_norm=1,
         #input_noise=0.001,
@@ -106,6 +108,8 @@ def main(root):
         monitors={
             #'*:out': (0.1, 0.5, 0.9),
         })
+
+    net.save('/tmp/posture-jacobian-gru.pkl.gz')
 
 
 if __name__ == '__main__':
