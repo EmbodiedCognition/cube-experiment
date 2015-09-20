@@ -8,6 +8,7 @@ import theanets
 
 logging = climate.get_logger('fill')
 
+
 def fill(dfs, rank, window):
     '''Complete missing marker data using a nonlinear autoencoder model.
 
@@ -28,11 +29,11 @@ def fill(dfs, rank, window):
     centers = lmj.cubes.fill.center(df)
     pos, vis, _ = lmj.cubes.fill.window(df, window)
 
-    data = [pos.astype('f'), vis.astype('f')]
-    net = theanets.Autoencoder(
-        (pos.shape[1], int(rank), pos.shape[1]),
-        weighted=True)
-    for tm, _ in net.itertrain(data, batch_size=128):
+    d = pos.shape[1]
+    net = theanets.Autoencoder((d, (int(rank), 'sigmoid'), d), weighted=True)
+    for tm, _ in net.itertrain([pos.astype('f'), vis.astype('f')],
+                               batch_size=128,
+                               momentum=0.5):
         if tm['loss'] < lmj.cubes.fill.PHASESPACE_TOLERANCE:
             break
 
