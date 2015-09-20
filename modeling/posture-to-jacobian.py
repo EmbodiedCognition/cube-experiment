@@ -45,12 +45,7 @@ def main(root):
     '''
 
     net = theanets.Regressor([
-        nbody + ngoal,
-        dict(size=1000, activation='sigmoid'),
-        dict(size=1000, activation='sigmoid'),
-        dict(size=1000, activation='sigmoid'),
-        dict(size=1000, activation='sigmoid'),
-        dict(size=1000, activation='sigmoid'),
+        nbody,
         dict(size=1000, activation='sigmoid'),
         dict(size=1000, activation='sigmoid'),
         dict(size=1000, activation='sigmoid'),
@@ -68,9 +63,7 @@ def main(root):
         goal = goals[s]
         jac = jacs[s]
         idx = body.index & goal.index & jac.index
-        b = body.loc[idx, :].values
-        g = goal.loc[idx, :].values
-        inputs.append(np.hstack([b, g]))
+        inputs.append(body.loc[idx, :].values)
         outputs.append(np.clip(jac.loc[idx, :].values, -THRESHOLD, THRESHOLD))
 
     net.train(
@@ -87,6 +80,8 @@ def main(root):
         monitors={
             #'*:out': (0.1, 0.5, 0.9),
         })
+
+    net.save('/tmp/posture-jacobian.pkl.gz')
 
 
 if __name__ == '__main__':
