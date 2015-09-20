@@ -128,7 +128,7 @@ def skeleton(ax, trial, frame, show_labels=(), **kwargs):
         ax.plot([f.x, f.x + dt * f.vx],
                 [f.z, f.z + dt * f.vz],
                 zs=[f.y, f.y + dt * f.vy],
-                alpha=0.4, color='#17becf')
+                color='#17becf')
 
     # plot skeleton segments.
     for segment in SKELETON_SEGMENTS:
@@ -139,7 +139,7 @@ def skeleton(ax, trial, frame, show_labels=(), **kwargs):
             xs.append(frames[m].x)
             ys.append(frames[m].y)
             zs.append(frames[m].z)
-        ax.plot(xs, zs, zs=ys, alpha=0.5, color='#111111', **kwargs)
+        ax.plot(xs, zs, zs=ys, color='#111111', **kwargs)
 
     # plot marker labels.
     for m, f in frames.items():
