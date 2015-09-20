@@ -134,6 +134,8 @@ def skeleton(ax, trial, frame, show_labels=(), **kwargs):
     for segment in SKELETON_SEGMENTS:
         xs, ys, zs = [], [], []
         for m in segment:
+            if m not in frames:
+                continue
             xs.append(frames[m].x)
             ys.append(frames[m].y)
             zs.append(frames[m].z)
