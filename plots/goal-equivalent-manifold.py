@@ -24,7 +24,7 @@ def main(root, pattern='*', targets=None):
             for target in targets:
                 mov = trial.movement_to(target)
                 if len(mov.df):
-                    lmj.cubes.plots.skeleton(ax, mov, -1, lw=2, alpha=0.1)
+                    lmj.cubes.plots.skeleton(ax, mov, -1, vel=False, lw=2, alpha=0.1)
 
 
 if __name__ == '__main__':

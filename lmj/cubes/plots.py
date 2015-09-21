@@ -98,7 +98,8 @@ SKELETON_SEGMENTS = (
      't3', 't9', 'l-ilium', 'r-ilium', 'r-hip', 'l-hip', 'abdomen', 'sternum'],
 )
 
-def skeleton(ax, trial, frame, show_labels=(), **kwargs):
+
+def skeleton(ax, trial, frame, show_labels=(), vel=True, **kwargs):
     '''Plot a skeleton based on a frame of the given trial.
 
     Parameters
@@ -109,7 +110,7 @@ def skeleton(ax, trial, frame, show_labels=(), **kwargs):
     show_labels : sequence of string
     '''
     idx = trial.df.index[frame]
-    fr = lambda m: trial.trajectory(m, velocity=True).loc[idx, :]
+    fr = lambda m: trial.trajectory(m, velocity=vel).loc[idx, :]
     frames = {m[9:]: fr(m) for m in trial.marker_columns}
 
     # plot marker positions.
@@ -123,12 +124,13 @@ def skeleton(ax, trial, frame, show_labels=(), **kwargs):
                s=40, lw=0, color='#d62728', **sckwargs)
 
     # plot marker velocities.
-    dt = 0.2
-    for f in frames.values():
-        ax.plot([f.x, f.x + dt * f.vx],
-                [f.z, f.z + dt * f.vz],
-                zs=[f.y, f.y + dt * f.vy],
-                color='#17becf')
+    if vel:
+        dt = 0.2
+        for f in frames.values():
+            ax.plot([f.x, f.x + dt * f.vx],
+                    [f.z, f.z + dt * f.vz],
+                    zs=[f.y, f.y + dt * f.vy],
+                    color='#17becf', **kwargs)
 
     # plot skeleton segments.
     for segment in SKELETON_SEGMENTS:
@@ -149,6 +151,7 @@ def skeleton(ax, trial, frame, show_labels=(), **kwargs):
 
 u, v = np.mgrid[0:2 * np.pi:17j, 0:np.pi:13j]
 sphere = np.array([np.cos(u) * np.sin(v), np.sin(u) * np.sin(v), np.cos(v)])
+
 
 def ellipsoid(center, radius):
     '''Return a grid of points defining an ellipsoid at the given location.
