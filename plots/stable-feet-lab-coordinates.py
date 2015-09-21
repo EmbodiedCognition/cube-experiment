@@ -16,30 +16,20 @@ def main(root, pattern='*'):
         for m, n in (('r', 40), ('l', 47)):
             t = trial.trajectory(n, velocity=True)
             t['speed'] = np.sqrt((t[['vx', 'vy', 'vz']] ** 2).sum(axis=1))
-            for i in utils.local_minima(df.speed.values):
-                points[m].append(t.iloc[i, :])
+            points[m].append(t.iloc[utils.local_minima(t.speed.values), :])
 
     for m in sorted(points):
         print(m, len(points[m]))
 
-    left_label = True
-    right_label = True
-    kw = dict(s=30, vmin=0, lw=0, alpha=0.5)
+    kw = dict(markersize=10, marker='o', linestyle='-', lw=1, alpha=0.5)
     with lmj.plot.axes(aspect='equal') as ax:
-        ax.scatter([0], [0], color='#111111', alpha=0.5, s=200, marker='s', lw=0)
+        ax.scatter([0], [0], color='#111111', alpha=0.7, s=200, marker='s', lw=0)
         for m, dfs in points.items():
-            kw['cmap'] = utils.OCM if m == 'l' else utils.BCM
+            kw['color'] = '#ff9900' if m == 'l' else '#3232c0'
+            kw['label'] = 'Left Foot' if m == 'l' else 'Right Foot'
             for df in dfs:
-                label = None
-                if m == 'l':
-                    if left_label:
-                        label = 'Left Foot'
-                        left_label = False
-                if m == 'r':
-                    if right_label:
-                        label = 'Right Foot'
-                        right_label = False
-                ax.scatter(df.x, df.z, c=df.speed, label=label, **kw)
+                ax.plot(df.x, df.z, **kw)
+                kw['label'] = None
         lmj.plot.legend(loc='upper left')
 
 

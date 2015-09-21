@@ -80,5 +80,5 @@ def contig(cond):
 
 def local_minima(a):
     '''Return indexes of local minima in a.'''
-    minima = numpy.r_[True, a[1:] < a[:-1]] & numpy.r_[a[:-1] < a[1:], True]
+    minima = np.r_[True, a[1:] < a[:-1]] & np.r_[a[:-1] < a[1:], True]
     return minima.nonzero()[0]
