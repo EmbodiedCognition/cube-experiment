@@ -7,10 +7,10 @@ setuptools.setup(
     namespace_packages=['lmj'],
     packages=setuptools.find_packages(),
     author='Leif Johnson',
-    author_email='leif@leifjohnson.net',
+    author_email='leif@lmjohns3.com',
     description='analysis code for cube experiment',
     long_description=open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'README.rst')).read(),
     license='MIT',
     url='http://github.com/lmjohns3/cube-experiment',
-    install_requires=['climate', 'numpy', 'pandas', 'scipy'],
+    install_requires=['climate', 'joblib', 'pandas', 'scikit-learn'],
 )
