@@ -1,6 +1,11 @@
 '''Constants related to phasespace markers.'''
 
-# labels for markers reported by the phasespace setup.
+# labels for markers reported by the phasespace setup. abbreviations:
+# mc = metacarpal
+# mt = metatarsal
+# tN = thoracic vertebra #N
+# psis = posterior superior iliac spine
+# asis = anterior superior iliac spine
 MARKER_LABELS = [
     'r-head-back',   # 00
     'r-head-front',
@@ -16,10 +21,10 @@ MARKER_LABELS = [
     'r-fing-ring',
     'r-fing-middle',
     'r-fing-index',
-    'r-mc-outer',
-    'r-mc-inner',    # 15
-    'r-thumb-base',
-    'r-thumb-tip',
+    'r-mc5',
+    'r-mc2',         # 15
+    'r-mc1',
+    'r-thumb',
     'l-collar',
     'l-shoulder',
     'l-elbow',       # 20
@@ -28,30 +33,30 @@ MARKER_LABELS = [
     'l-fing-ring',
     'l-fing-middle',
     'l-fing-index',  # 25
-    'l-mc-outer',
-    'l-mc-inner',
-    'l-thumb-base',
-    'l-thumb-tip',
+    'l-mc5',
+    'l-mc3',
+    'l-mc1',
+    'l-thumb',
     'abdomen',       # 30
     'sternum',
     't3',
     't9',
-    'l-ilium',
-    'r-ilium',       # 35
-    'r-hip',
+    'l-psis',
+    'r-psis',        # 35
+    'r-asis',
     'r-knee',
     'r-shin',
     'r-ankle',
     'r-heel',        # 40
-    'r-mt-outer',
-    'r-mt-inner',
-    'l-hip',
+    'r-mt5',
+    'r-mt1',
+    'l-asis',
     'l-knee',
     'l-shin',        # 45
     'l-ankle',
     'l-heel',
-    'l-mt-outer',
-    'l-mt-inner',
+    'l-mt5',
+    'l-mt1',
     ]
 
 
