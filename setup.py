@@ -9,5 +9,8 @@ setuptools.setup(
     long_description=open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'README.rst')).read(),
     license='MIT',
     url='http://github.com/EmbodiedCognition/cube-experiment',
-    install_requires=['click', 'numpy', 'matplotlib', 'pandas', 'scipy', 'seaborn'],
+    install_requires=[
+        'click', 'joblib', 'matplotlib', 'numpy',
+        'pandas', 'scikit-learn', 'scipy', 'seaborn',
+    ],
 )
